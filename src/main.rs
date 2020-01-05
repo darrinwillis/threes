@@ -1,8 +1,10 @@
 extern crate rand;
+use rand::prelude::*;
 
 const WIDTH: usize = 4;
 const NUM_BLOCKS: usize = WIDTH * WIDTH;
 
+#[derive(PartialEq)]
 enum Direction {
     Down,
     Up,
@@ -111,6 +113,10 @@ impl ThreesGame {
         }
     }
 
+    fn rows(&self) -> Vec<Section> {
+        (0..WIDTH).map(|i| self.get_row(i)).collect()
+    }
+
     fn get_col(&self, c: usize) -> Section {
         let mut new_col: [i32; WIDTH] = [0; WIDTH];
         for i in 0..WIDTH {
@@ -123,6 +129,14 @@ impl ThreesGame {
         for i in 0..WIDTH {
             self.blocks[i * WIDTH + c] = sec[i];
         }
+    }
+
+    fn cols(&self) -> Vec<Section> {
+        (0..WIDTH).map(|i| self.get_col(i)).collect()
+    }
+
+    fn set_value(&mut self, row: usize, col: usize, value: Rank) {
+        self.blocks[row * WIDTH + col] = value;
     }
 
     fn update(&mut self, d: Direction) -> bool {
@@ -153,10 +167,28 @@ impl ThreesGame {
         }
 
         // We've shifted everything, we can add new elements now
-        match d {
-            Direction::Down | Direction::Up => {}
-            Direction::Left | Direction::Right => {}
-        }
+        let (new_val_row, new_val_col) = match d {
+            Direction::Down | Direction::Up => {
+                let open_row = if d == Direction::Down {WIDTH-1} else {0};
+                let elligible_cols = self.cols().iter().enumerate()
+                    .filter_map(|(col_idx, col)| if col[open_row] == 0 {Some(col_idx)} else {None})
+                    .collect::<Vec<usize>>();
+                let selected_idx = self.rng.gen_range(0, elligible_cols.len());
+                let selected_col = elligible_cols[selected_idx];
+                (open_row, selected_col)
+            }
+            Direction::Left | Direction::Right => {
+                let open_col = if d == Direction::Left {WIDTH-1} else {0};
+                let elligible_rows = self.rows().iter().enumerate()
+                    .filter_map(|(row_idx, row)| if row[open_col] == 0 {Some(row_idx)} else {None})
+                    .collect::<Vec<usize>>();
+                let selected_idx = self.rng.gen_range(0, elligible_rows.len());
+                let selected_row = elligible_rows[selected_idx];
+                (selected_row, open_col)
+            }
+        };
+        let new_val = self.rng.gen_range(1,2 + 1);
+        self.set_value(new_val_row, new_val_col, new_val);
 
         true
     }
