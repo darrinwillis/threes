@@ -1,4 +1,10 @@
+extern crate termion;
 extern crate rand;
+
+use termion::raw::IntoRawMode;
+use termion::input::TermRead;
+use termion::event::Key;
+use std::io::{Write, stdout, stdin};
 use rand::prelude::*;
 
 const WIDTH: usize = 4;
@@ -96,7 +102,7 @@ impl ThreesGame {
                     .join("|")
             })
             .collect::<Vec<String>>()
-            .join("\n")
+            .join("\r\n")
     }
 
     fn get_row(&self, r: usize) -> Section {
@@ -141,7 +147,7 @@ impl ThreesGame {
 
     fn update(&mut self, d: Direction) -> bool {
         let increasing = match d {
-            Direction::Up | Direction::Right => true,
+            Direction::Down | Direction::Right => true,
             _ => false,
         };
 
@@ -161,36 +167,44 @@ impl ThreesGame {
                 }
             }
         };
-        // check if this will be allowed
-        if false {
-            return false;
-        }
 
         // We've shifted everything, we can add new elements now
-        let (new_val_row, new_val_col) = match d {
+        let new_pos = match d {
             Direction::Down | Direction::Up => {
                 let open_row = if d == Direction::Down {WIDTH-1} else {0};
                 let elligible_cols = self.cols().iter().enumerate()
                     .filter_map(|(col_idx, col)| if col[open_row] == 0 {Some(col_idx)} else {None})
                     .collect::<Vec<usize>>();
-                let selected_idx = self.rng.gen_range(0, elligible_cols.len());
-                let selected_col = elligible_cols[selected_idx];
-                (open_row, selected_col)
+                if elligible_cols.len() > 0{
+                    let selected_idx = self.rng.gen_range(0, elligible_cols.len());
+                    let selected_col = elligible_cols[selected_idx];
+                    Some((open_row, selected_col))
+                } else {
+                    None
+                }
             }
             Direction::Left | Direction::Right => {
                 let open_col = if d == Direction::Left {WIDTH-1} else {0};
                 let elligible_rows = self.rows().iter().enumerate()
                     .filter_map(|(row_idx, row)| if row[open_col] == 0 {Some(row_idx)} else {None})
                     .collect::<Vec<usize>>();
-                let selected_idx = self.rng.gen_range(0, elligible_rows.len());
-                let selected_row = elligible_rows[selected_idx];
-                (selected_row, open_col)
+                if elligible_rows.len() > 0 {
+                    let selected_idx = self.rng.gen_range(0, elligible_rows.len());
+                    let selected_row = elligible_rows[selected_idx];
+                    Some((selected_row, open_col))
+                } else {
+                    None
+                }
             }
         };
-        let new_val = self.rng.gen_range(1,2 + 1);
-        self.set_value(new_val_row, new_val_col, new_val);
-
-        true
+        match new_pos {
+            Some((new_row, new_col)) => {
+                let new_val = self.rng.gen_range(1,2 + 1);
+                self.set_value(new_row, new_col, new_val);
+                true
+            }
+            None => false
+        }
     }
 }
 
@@ -233,4 +247,28 @@ fn main() {
     println!("{}\n", board.render());
     board.update(Direction::Left);
     println!("{}\n", board.render());
+
+
+    //let mut stdout = stdout().into_raw_mode().unwrap();
+    let stdin = stdin();
+    let mut stdin = stdin.lock();
+    for c in stdin.keys() {
+        //write!(stdout, "{}{}", termion::cursor::Goto(1, 1), termion::clear::CurrentLine).unwrap();
+
+        let direction = match c.unwrap() {
+            Key::Char('q') => break,
+            Key::Left => Some(Direction::Left),
+            Key::Right => Some(Direction::Right),
+            Key::Up => Some(Direction::Up),
+            Key::Down => Some(Direction::Down),
+            _ => None
+        };
+        match direction {
+            Some(d) => board.update(d),
+            None => false
+        };
+        println!("{}\n", board.render());
+        //stdout.flush().unwrap();
+
+    }
 }
