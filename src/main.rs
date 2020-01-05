@@ -10,41 +10,70 @@ enum Direction {
     Right,
 }
 
-type Section = [i32; WIDTH];
-type Board = [i32; WIDTH * WIDTH];
-const ZeroSection: Section = [0; WIDTH];
+type Rank = i32;
+type Section = [Rank; WIDTH];
+type Board = [Rank; WIDTH * WIDTH];
+const ZERO_SECTION: Section = [0; WIDTH];
 
 struct ThreesGame {
     blocks: Board,
     rng: rand::rngs::ThreadRng,
 }
 
-fn shift(in_sec: &Section, increasing: bool) -> Section {
+fn combine(in1: Rank, in2: Rank) -> Option<Rank> {
+    if in1 == 0 || in2 == 0 {
+        None
+    } else if (in1 == 1 && in2 == 2) || (in1 == 2 && in2 == 1) {
+        Some(3)
+    } else if in1 == in2 && ![1,2].contains(&in1) {
+        Some(2 * in1)
+    } else {
+        None
+    }
+}
+
+// Returns the new section and whether there was a shift in the section
+fn shift(in_sec: &Section, increasing: bool) -> (Section, bool) {
     let mut oriented_sec: Section = *in_sec;
     if increasing {
         oriented_sec.reverse();
     }
-    let mut out_sec = shift_down(&oriented_sec);
+    let (mut out_sec, moved) = shift_down(&oriented_sec);
     if increasing {
         out_sec.reverse();
     }
-    out_sec
+    (out_sec, moved)
 }
 
-fn shift_down(in_sec: &Section) -> Section {
-    let mut out_sec = ZeroSection;
+// Returns the new section and whether there was a shift in the section
+fn shift_down(in_sec: &Section) -> (Section, bool) {
+    let mut out_sec = ZERO_SECTION;
 
-    let mut moved = false;
-    let mut out_x = 0;
-    for in_x in 0..WIDTH {
-        if in_sec[in_x] == 0 && !moved {
-            moved = true;
+    // If we have a movement, then all following blocks will shift down and
+    // will not combine
+    let mut will_shift = false;
+    // We want to track if we had actual movement to report to the caller
+    let mut block_moved = false;
+    for in_x in 0..WIDTH-1 {
+        let bot = in_sec[in_x];
+        let top = in_sec[in_x+1];
+        if bot == 0 || will_shift {
+            out_sec[in_x] = top;
+            will_shift = true;
+            if top != 0 {
+                block_moved = true;
+            }
+        } else if let Some(new_val) = combine(bot, top) {
+            out_sec[in_x] = new_val;
+            will_shift = true;
+            block_moved = true;
         } else {
-            out_sec[out_x] = in_sec[in_x];
-            out_x += 1;
+            out_sec[in_x] = bot;
+            // XXX this is a little weird because this might get overwritten
+            out_sec[in_x+1] = top;
         }
     }
-    out_sec
+    (out_sec, block_moved)
 }
 
 impl ThreesGame {
@@ -106,13 +135,15 @@ impl ThreesGame {
             Direction::Down | Direction::Up => {
                 for i in 0..WIDTH {
                     let section = self.get_col(i);
-                    self.set_col(i, shift(&section, increasing));
+                    let (new_col, _) = shift(&section, increasing);
+                    self.set_col(i, new_col);
                 }
             }
             Direction::Left | Direction::Right => {
                 for i in 0..WIDTH {
                     let section = self.get_row(i);
-                    self.set_row(i, shift(&section, increasing));
+                    let (new_row, _) = shift(&section, increasing);
+                    self.set_row(i, new_row);
                 }
             }
         };
@@ -137,18 +168,26 @@ mod tests {
 
     #[test]
     fn test_shift() {
-        assert_eq!(shift(&[0, 0, 0, 0], false), [0, 0, 0, 0]);
-        assert_eq!(shift(&[1, 0, 0, 0], false), [1, 0, 0, 0]);
-        assert_eq!(shift(&[0, 1, 0, 0], false), [1, 0, 0, 0]);
-        assert_eq!(shift(&[1, 1, 0, 0], false), [1, 1, 0, 0]);
-        assert_eq!(shift(&[1, 0, 0, 1], false), [1, 0, 1, 0]);
-        assert_eq!(shift(&[1, 1, 1, 1], false), [1, 1, 1, 1]);
-        assert_eq!(shift(&[0, 0, 0, 0], true), [0, 0, 0, 0]);
-        assert_eq!(shift(&[0, 0, 0, 1], true), [0, 0, 0, 1]);
-        assert_eq!(shift(&[0, 0, 1, 0], true), [0, 0, 0, 1]);
-        assert_eq!(shift(&[0, 0, 1, 1], true), [0, 0, 1, 1]);
-        assert_eq!(shift(&[1, 0, 0, 1], true), [0, 1, 0, 1]);
-        assert_eq!(shift(&[1, 1, 1, 1], true), [1, 1, 1, 1]);
+        // Test simple shifting for forwards and backwards
+        assert_eq!(shift(&[0, 0, 0, 0], false), ([0, 0, 0, 0], false));
+        assert_eq!(shift(&[1, 0, 0, 0], false), ([1, 0, 0, 0], false));
+        assert_eq!(shift(&[0, 1, 0, 0], false), ([1, 0, 0, 0], true));
+        assert_eq!(shift(&[1, 1, 0, 0], false), ([1, 1, 0, 0], false));
+        assert_eq!(shift(&[1, 0, 0, 1], false), ([1, 0, 1, 0], true));
+        assert_eq!(shift(&[1, 1, 1, 1], false), ([1, 1, 1, 1], false));
+        assert_eq!(shift(&[0, 0, 0, 0], true), ([0, 0, 0, 0], false));
+        assert_eq!(shift(&[0, 0, 0, 1], true), ([0, 0, 0, 1], false));
+        assert_eq!(shift(&[0, 0, 1, 0], true), ([0, 0, 0, 1], true));
+        assert_eq!(shift(&[0, 0, 1, 1], true), ([0, 0, 1, 1], false));
+        assert_eq!(shift(&[1, 0, 0, 1], true), ([0, 1, 0, 1], true));
+        assert_eq!(shift(&[1, 1, 1, 1], true), ([1, 1, 1, 1], false));
+
+        // Test combining
+        assert_eq!(shift(&[1, 2, 0, 0], false), ([3, 0, 0, 0], true));
+        assert_eq!(shift(&[2, 1, 0, 0], false), ([3, 0, 0, 0], true));
+        assert_eq!(shift(&[3, 3, 0, 0], false), ([6, 0, 0, 0], true));
+        assert_eq!(shift(&[3, 6, 0, 0], false), ([3, 6, 0, 0], false));
+        assert_eq!(shift(&[6, 6, 0, 0], false), ([12, 0, 0, 0], true));
     }
 }
 
