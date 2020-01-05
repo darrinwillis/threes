@@ -97,7 +97,7 @@ impl ThreesGame {
             .chunks(WIDTH)
             .map(|row| {
                 row.iter()
-                    .map(|c| c.to_string())
+                    .map(|c| format!("{:3}", c.to_string()))
                     .collect::<Vec<String>>()
                     .join("|")
             })
@@ -171,7 +171,7 @@ impl ThreesGame {
         // We've shifted everything, we can add new elements now
         let new_pos = match d {
             Direction::Down | Direction::Up => {
-                let open_row = if d == Direction::Down {WIDTH-1} else {0};
+                let open_row = if d == Direction::Down {0} else {WIDTH-1};
                 let elligible_cols = self.cols().iter().enumerate()
                     .filter_map(|(col_idx, col)| if col[open_row] == 0 {Some(col_idx)} else {None})
                     .collect::<Vec<usize>>();
@@ -247,13 +247,27 @@ fn main() {
     println!("{}\n", board.render());
     board.update(Direction::Left);
     println!("{}\n", board.render());
+    board = ThreesGame::new();
 
-
-    //let mut stdout = stdout().into_raw_mode().unwrap();
+    let mut stdout = stdout().into_raw_mode().unwrap();
     let stdin = stdin();
-    let mut stdin = stdin.lock();
+    let stdin = stdin.lock();
+    write!(stdout, "{}{}q to exit. Arrows keys to play.{}\r\n",
+           // Clear the screen.
+           termion::clear::All,
+           // Goto (1,1).
+           termion::cursor::Goto(1, 1),
+           // Hide the cursor.
+           termion::cursor::Hide).unwrap();
+    println!("{}\n", board.render());
+
+    let mut first = true;
     for c in stdin.keys() {
-        //write!(stdout, "{}{}", termion::cursor::Goto(1, 1), termion::clear::CurrentLine).unwrap();
+        if first {
+            write!(stdout, "{}", termion::clear::All).unwrap();
+            first = false;
+        }
+        write!(stdout, "{}{}", termion::cursor::Goto(1, 1), termion::clear::CurrentLine).unwrap();
 
         let direction = match c.unwrap() {
             Key::Char('q') => break,
@@ -268,7 +282,7 @@ fn main() {
             None => false
         };
         println!("{}\n", board.render());
-        //stdout.flush().unwrap();
+        stdout.flush().unwrap();
 
     }
 }
