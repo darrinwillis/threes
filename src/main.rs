@@ -10,7 +10,7 @@ use termion::raw::IntoRawMode;
 const WIDTH: usize = 4;
 const NUM_BLOCKS: usize = WIDTH * WIDTH;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 enum Direction {
     Down,
     Up,
@@ -21,12 +21,17 @@ enum Direction {
 type Score = i32;
 type Rank = i32;
 type Section = [Rank; WIDTH];
-type Board = [Rank; WIDTH * WIDTH];
 const ZERO_SECTION: Section = [0; WIDTH];
 
+struct Board {
+    blocks: [Rank; WIDTH * WIDTH],
+}
+
 struct ThreesGame {
-    blocks: Board,
+    board: Board,
     rng: rand::rngs::ThreadRng,
+    // whether the board is empty; could be moved down into Board, but it's more efficient here.
+    empty: bool,
 }
 
 struct GameResult {
@@ -94,25 +99,11 @@ fn shift_down(in_sec: &Section) -> (Section, bool) {
     (out_sec, block_moved)
 }
 
-impl ThreesGame {
-    fn new() -> ThreesGame {
-        ThreesGame {
+impl Board {
+    fn new() -> Board {
+        Board {
             blocks: [0; NUM_BLOCKS],
-            rng: rand::thread_rng(),
         }
-    }
-
-    fn render(&self) -> String {
-        self.blocks
-            .chunks(WIDTH)
-            .map(|row| {
-                row.iter()
-                    .map(|c| format!("{:3}", c.to_string()))
-                    .collect::<Vec<String>>()
-                    .join("|")
-            })
-            .collect::<Vec<String>>()
-            .join("\r\n")
     }
 
     fn get_row(&self, r: usize) -> Section {
@@ -155,87 +146,116 @@ impl ThreesGame {
         self.blocks[row * WIDTH + col] = value;
     }
 
-    fn check_game_over(&self) -> Option<GameResult> {
-        None
-    }
-
-    fn update(&mut self, d: Direction) -> MoveResult {
+    // Push the board in a certain direction
+    // Returns true if the board was modified
+    fn shove(&mut self, d: Direction) -> bool {
         let increasing = match d {
             Direction::Down | Direction::Right => true,
             _ => false,
         };
 
+        let mut modified = false;
         match d {
             Direction::Down | Direction::Up => {
                 for i in 0..WIDTH {
                     let section = self.get_col(i);
-                    let (new_col, _) = shift(&section, increasing);
-                    self.set_col(i, new_col);
+                    let (new_col, col_modified) = shift(&section, increasing);
+                    if col_modified {
+                        modified = true;
+                        self.set_col(i, new_col);
+                    }
                 }
             }
             Direction::Left | Direction::Right => {
                 for i in 0..WIDTH {
                     let section = self.get_row(i);
-                    let (new_row, _) = shift(&section, increasing);
-                    self.set_row(i, new_row);
+                    let (new_row, row_modified) = shift(&section, increasing);
+                    if row_modified {
+                        modified = true;
+                        self.set_row(i, new_row);
+                    }
                 }
             }
         };
+        modified
+    }
+}
 
-        // We've shifted everything, we can add new elements now
-        let new_pos = match d {
-            Direction::Down | Direction::Up => {
-                let open_row = if d == Direction::Down { 0 } else { WIDTH - 1 };
-                let elligible_cols = self
-                    .cols()
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(col_idx, col)| {
-                        if col[open_row] == 0 {
-                            Some(col_idx)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<usize>>();
-                if elligible_cols.len() > 0 {
+impl ThreesGame {
+    fn new() -> ThreesGame {
+        ThreesGame {
+            board: Board::new(),
+            empty: true,
+            rng: rand::thread_rng(),
+        }
+    }
+
+    // Returns the indexes of all the sections which are available
+    fn elligible_sections(sections: Vec<Section>, sec_idx: usize) -> Vec<usize> {
+        sections
+            .iter()
+            .enumerate()
+            .filter_map(|(col_idx, col)| {
+                if col[sec_idx] == 0 {
+                    Some(col_idx)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<usize>>()
+    }
+
+    fn render(&self) -> String {
+        self.board
+            .blocks
+            .chunks(WIDTH)
+            .map(|row| {
+                row.iter()
+                    .map(|c| format!("{:3}", c.to_string()))
+                    .collect::<Vec<String>>()
+                    .join("|")
+            })
+            .collect::<Vec<String>>()
+            .join("\r\n")
+    }
+
+    fn check_game_over(&self) -> Option<GameResult> {
+        None
+    }
+
+    fn update(&mut self, d: Direction) -> MoveResult {
+        let modified = self.board.shove(d);
+        if !(modified || self.empty) {
+            // Either this board was just modified by the shove or it's the first move
+            MoveResult::Failed
+        } else {
+            // We've shifted everything, we can add new elements now
+            let (new_row, new_col) = match d {
+                Direction::Down | Direction::Up => {
+                    let open_row = if d == Direction::Down { 0 } else { WIDTH - 1 };
+                    let elligible_cols = Self::elligible_sections(self.board.cols(), open_row);
+                    if elligible_cols.is_empty() {
+                        panic!("shifted board does not have open row")
+                    }
                     let selected_idx = self.rng.gen_range(0, elligible_cols.len());
                     let selected_col = elligible_cols[selected_idx];
-                    Some((open_row, selected_col))
-                } else {
-                    None
+                    (open_row, selected_col)
                 }
-            }
-            Direction::Left | Direction::Right => {
-                let open_col = if d == Direction::Left { WIDTH - 1 } else { 0 };
-                let elligible_rows = self
-                    .rows()
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(row_idx, row)| {
-                        if row[open_col] == 0 {
-                            Some(row_idx)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<usize>>();
-                if elligible_rows.len() > 0 {
+                Direction::Left | Direction::Right => {
+                    let open_col = if d == Direction::Left { WIDTH - 1 } else { 0 };
+                    let elligible_rows = Self::elligible_sections(self.board.rows(), open_col);
+                    if elligible_rows.len() == 0 {
+                        panic!("shifted board does not have open col")
+                    }
                     let selected_idx = self.rng.gen_range(0, elligible_rows.len());
                     let selected_row = elligible_rows[selected_idx];
-                    Some((selected_row, open_col))
-                } else {
-                    None
+                    (selected_row, open_col)
                 }
-            }
-        };
-        match new_pos {
-            Some((new_row, new_col)) => {
-                let new_val = self.rng.gen_range(1, 2 + 1);
-                self.set_value(new_row, new_col, new_val);
-                MoveResult::Moved(self.check_game_over())
-            }
-            None => MoveResult::Failed,
+            };
+            let new_val = self.rng.gen_range(1, 2 + 1);
+            self.board.set_value(new_row, new_col, new_val);
+            self.empty = false;
+            MoveResult::Moved(self.check_game_over())
         }
     }
 }
