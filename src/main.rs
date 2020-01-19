@@ -280,7 +280,7 @@ impl ThreesGame {
                 Direction::Left | Direction::Right => {
                     let open_col = if d == Direction::Left { WIDTH - 1 } else { 0 };
                     let elligible_rows = Self::elligible_sections(self.cur_board.rows(), open_col);
-                    if elligible_rows.len() == 0 {
+                    if elligible_rows.is_empty() {
                         panic!("shifted board does not have open col")
                     }
                     let selected_idx = self.rng.gen_range(0, elligible_rows.len());
@@ -390,7 +390,13 @@ fn main() {
                 let move_result = board.update(d);
                 match move_result {
                     MoveResult::Moved(Some(game_result)) => {
-                        println!("Game over; {} points", game_result.score);
+                        write!(
+                            stdout,
+                            "{}Game Over\r\n{} points\r\n",
+                            termion::clear::All,
+                            game_result.score
+                        )
+                        .unwrap();
                         true
                     }
                     MoveResult::Moved(None) => {
