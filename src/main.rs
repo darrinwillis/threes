@@ -1,11 +1,11 @@
-extern crate termion;
 extern crate rand;
+extern crate termion;
 
-use termion::raw::IntoRawMode;
-use termion::input::TermRead;
-use termion::event::Key;
-use std::io::{Write, stdout, stdin};
 use rand::prelude::*;
+use std::io::{stdin, stdout, Write};
+use termion::event::Key;
+use termion::input::TermRead;
+use termion::raw::IntoRawMode;
 
 const WIDTH: usize = 4;
 const NUM_BLOCKS: usize = WIDTH * WIDTH;
@@ -18,6 +18,7 @@ enum Direction {
     Right,
 }
 
+type Score = i32;
 type Rank = i32;
 type Section = [Rank; WIDTH];
 type Board = [Rank; WIDTH * WIDTH];
@@ -28,12 +29,21 @@ struct ThreesGame {
     rng: rand::rngs::ThreadRng,
 }
 
+struct GameResult {
+    score: Score,
+}
+
+enum MoveResult {
+    Moved(Option<GameResult>),
+    Failed,
+}
+
 fn combine(in1: Rank, in2: Rank) -> Option<Rank> {
     if in1 == 0 || in2 == 0 {
         None
     } else if (in1 == 1 && in2 == 2) || (in1 == 2 && in2 == 1) {
         Some(3)
-    } else if in1 == in2 && ![1,2].contains(&in1) {
+    } else if in1 == in2 && ![1, 2].contains(&in1) {
         Some(2 * in1)
     } else {
         None
@@ -62,9 +72,9 @@ fn shift_down(in_sec: &Section) -> (Section, bool) {
     let mut will_shift = false;
     // We want to track if we had actual movement to report to the caller
     let mut block_moved = false;
-    for in_x in 0..WIDTH-1 {
+    for in_x in 0..WIDTH - 1 {
         let bot = in_sec[in_x];
-        let top = in_sec[in_x+1];
+        let top = in_sec[in_x + 1];
         if bot == 0 || will_shift {
             out_sec[in_x] = top;
             will_shift = true;
@@ -78,7 +88,7 @@ fn shift_down(in_sec: &Section) -> (Section, bool) {
         } else {
             out_sec[in_x] = bot;
             // XXX this is a little weird because this might get overwritten
-            out_sec[in_x+1] = top;
+            out_sec[in_x + 1] = top;
         }
     }
     (out_sec, block_moved)
@@ -145,7 +155,11 @@ impl ThreesGame {
         self.blocks[row * WIDTH + col] = value;
     }
 
-    fn update(&mut self, d: Direction) -> bool {
+    fn check_game_over(&self) -> Option<GameResult> {
+        None
+    }
+
+    fn update(&mut self, d: Direction) -> MoveResult {
         let increasing = match d {
             Direction::Down | Direction::Right => true,
             _ => false,
@@ -171,11 +185,20 @@ impl ThreesGame {
         // We've shifted everything, we can add new elements now
         let new_pos = match d {
             Direction::Down | Direction::Up => {
-                let open_row = if d == Direction::Down {0} else {WIDTH-1};
-                let elligible_cols = self.cols().iter().enumerate()
-                    .filter_map(|(col_idx, col)| if col[open_row] == 0 {Some(col_idx)} else {None})
+                let open_row = if d == Direction::Down { 0 } else { WIDTH - 1 };
+                let elligible_cols = self
+                    .cols()
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(col_idx, col)| {
+                        if col[open_row] == 0 {
+                            Some(col_idx)
+                        } else {
+                            None
+                        }
+                    })
                     .collect::<Vec<usize>>();
-                if elligible_cols.len() > 0{
+                if elligible_cols.len() > 0 {
                     let selected_idx = self.rng.gen_range(0, elligible_cols.len());
                     let selected_col = elligible_cols[selected_idx];
                     Some((open_row, selected_col))
@@ -184,9 +207,18 @@ impl ThreesGame {
                 }
             }
             Direction::Left | Direction::Right => {
-                let open_col = if d == Direction::Left {WIDTH-1} else {0};
-                let elligible_rows = self.rows().iter().enumerate()
-                    .filter_map(|(row_idx, row)| if row[open_col] == 0 {Some(row_idx)} else {None})
+                let open_col = if d == Direction::Left { WIDTH - 1 } else { 0 };
+                let elligible_rows = self
+                    .rows()
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(row_idx, row)| {
+                        if row[open_col] == 0 {
+                            Some(row_idx)
+                        } else {
+                            None
+                        }
+                    })
                     .collect::<Vec<usize>>();
                 if elligible_rows.len() > 0 {
                     let selected_idx = self.rng.gen_range(0, elligible_rows.len());
@@ -199,11 +231,11 @@ impl ThreesGame {
         };
         match new_pos {
             Some((new_row, new_col)) => {
-                let new_val = self.rng.gen_range(1,2 + 1);
+                let new_val = self.rng.gen_range(1, 2 + 1);
                 self.set_value(new_row, new_col, new_val);
-                true
+                MoveResult::Moved(self.check_game_over())
             }
-            None => false
+            None => MoveResult::Failed,
         }
     }
 }
@@ -252,13 +284,17 @@ fn main() {
     let mut stdout = stdout().into_raw_mode().unwrap();
     let stdin = stdin();
     let stdin = stdin.lock();
-    write!(stdout, "{}{}q to exit. Arrows keys to play.{}\r\n",
-           // Clear the screen.
-           termion::clear::All,
-           // Goto (1,1).
-           termion::cursor::Goto(1, 1),
-           // Hide the cursor.
-           termion::cursor::Hide).unwrap();
+    write!(
+        stdout,
+        "{}{}q to exit. Arrows keys to play.{}\r\n",
+        // Clear the screen.
+        termion::clear::All,
+        // Goto (1,1).
+        termion::cursor::Goto(1, 1),
+        // Hide the cursor.
+        termion::cursor::Hide
+    )
+    .unwrap();
     println!("{}\n", board.render());
 
     let mut first = true;
@@ -267,7 +303,13 @@ fn main() {
             write!(stdout, "{}", termion::clear::All).unwrap();
             first = false;
         }
-        write!(stdout, "{}{}", termion::cursor::Goto(1, 1), termion::clear::CurrentLine).unwrap();
+        write!(
+            stdout,
+            "{}{}",
+            termion::cursor::Goto(1, 1),
+            termion::clear::CurrentLine
+        )
+        .unwrap();
 
         let direction = match c.unwrap() {
             Key::Char('q') => break,
@@ -275,14 +317,30 @@ fn main() {
             Key::Right => Some(Direction::Right),
             Key::Up => Some(Direction::Up),
             Key::Down => Some(Direction::Down),
-            _ => None
+            _ => None,
         };
-        match direction {
-            Some(d) => board.update(d),
-            None => false
+        let game_over = match direction {
+            Some(d) => {
+                let move_result = board.update(d);
+                match move_result {
+                    MoveResult::Moved(Some(game_result)) => {
+                        println!("Game over; {} points", game_result.score);
+                        true
+                    }
+                    MoveResult::Moved(None) => {
+                        // The game is still going
+                        false
+                    }
+                    MoveResult::Failed => false,
+                }
+            }
+            // Unknown move direction
+            None => false,
         };
+        if game_over {
+            break;
+        }
         println!("{}\n", board.render());
         stdout.flush().unwrap();
-
     }
 }
