@@ -1,6 +1,9 @@
+#[macro_use]
+extern crate enum_map;
 extern crate rand;
 extern crate termion;
 
+use enum_map::EnumMap;
 use rand::prelude::*;
 use std::io::{stdin, stdout, Write};
 use termion::event::Key;
@@ -10,7 +13,7 @@ use termion::raw::IntoRawMode;
 const WIDTH: usize = 4;
 const NUM_BLOCKS: usize = WIDTH * WIDTH;
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Enum)]
 enum Direction {
     Down,
     Up,
@@ -20,15 +23,21 @@ enum Direction {
 
 type Score = i32;
 type Rank = i32;
+type BoardBlocks = [Rank; NUM_BLOCKS];
 type Section = [Rank; WIDTH];
+type BoardSections = [Section; WIDTH];
+const ZERO_BOARD_BLOCKS: BoardBlocks = [0; NUM_BLOCKS];
 const ZERO_SECTION: Section = [0; WIDTH];
+const ZERO_BOARD_SECTIONS: BoardSections = [ZERO_SECTION; WIDTH];
 
+#[derive(Copy, Clone)]
 struct Board {
-    blocks: [Rank; WIDTH * WIDTH],
+    blocks: BoardBlocks,
 }
 
 struct ThreesGame {
-    board: Board,
+    cur_board: Board,
+    shifted_boards: EnumMap<Direction, Option<Board>>,
     rng: rand::rngs::ThreadRng,
     // whether the board is empty; could be moved down into Board, but it's more efficient here.
     empty: bool,
@@ -102,12 +111,12 @@ fn shift_down(in_sec: &Section) -> (Section, bool) {
 impl Board {
     fn new() -> Board {
         Board {
-            blocks: [0; NUM_BLOCKS],
+            blocks: ZERO_BOARD_BLOCKS,
         }
     }
 
     fn get_row(&self, r: usize) -> Section {
-        let mut new_row: [i32; WIDTH] = [0; WIDTH];
+        let mut new_row = ZERO_SECTION;
         for i in 0..WIDTH {
             new_row[i] = self.blocks[r * WIDTH + i];
         }
@@ -120,12 +129,16 @@ impl Board {
         }
     }
 
-    fn rows(&self) -> Vec<Section> {
-        (0..WIDTH).map(|i| self.get_row(i)).collect()
+    fn rows(&self) -> BoardSections {
+        let mut sections = ZERO_BOARD_SECTIONS;
+        for i in 0..WIDTH {
+            sections[i] = self.get_row(i);
+        }
+        sections
     }
 
     fn get_col(&self, c: usize) -> Section {
-        let mut new_col: [i32; WIDTH] = [0; WIDTH];
+        let mut new_col = ZERO_SECTION;
         for i in 0..WIDTH {
             new_col[i] = self.blocks[i * WIDTH + c];
         }
@@ -138,8 +151,16 @@ impl Board {
         }
     }
 
-    fn cols(&self) -> Vec<Section> {
-        (0..WIDTH).map(|i| self.get_col(i)).collect()
+    fn cols(&self) -> BoardSections {
+        let mut sections = ZERO_BOARD_SECTIONS;
+        for i in 0..WIDTH {
+            sections[i] = self.get_col(i);
+        }
+        sections
+    }
+
+    fn values(&self) -> BoardBlocks {
+        self.blocks
     }
 
     fn set_value(&mut self, row: usize, col: usize, value: Rank) {
@@ -184,14 +205,15 @@ impl Board {
 impl ThreesGame {
     fn new() -> ThreesGame {
         ThreesGame {
-            board: Board::new(),
+            cur_board: Board::new(),
+            shifted_boards: EnumMap::new(),
             empty: true,
             rng: rand::thread_rng(),
         }
     }
 
     // Returns the indexes of all the sections which are available
-    fn elligible_sections(sections: Vec<Section>, sec_idx: usize) -> Vec<usize> {
+    fn elligible_sections(sections: BoardSections, sec_idx: usize) -> Vec<usize> {
         sections
             .iter()
             .enumerate()
@@ -206,7 +228,7 @@ impl ThreesGame {
     }
 
     fn render(&self) -> String {
-        self.board
+        self.cur_board
             .blocks
             .chunks(WIDTH)
             .map(|row| {
@@ -220,11 +242,25 @@ impl ThreesGame {
     }
 
     fn check_game_over(&self) -> Option<GameResult> {
-        None
+        let no_moves = vec![
+            Direction::Down,
+            Direction::Up,
+            Direction::Left,
+            Direction::Right,
+        ]
+        .iter()
+        .all(|d| self.shifted_boards[*d].is_none());
+        if !no_moves {
+            return None;
+        }
+
+        Some(GameResult {
+            score: self.cur_board.values().iter().map(|v| v * v).sum(),
+        })
     }
 
     fn update(&mut self, d: Direction) -> MoveResult {
-        let modified = self.board.shove(d);
+        let modified = self.cur_board.shove(d);
         if !(modified || self.empty) {
             // Either this board was just modified by the shove or it's the first move
             MoveResult::Failed
@@ -233,7 +269,7 @@ impl ThreesGame {
             let (new_row, new_col) = match d {
                 Direction::Down | Direction::Up => {
                     let open_row = if d == Direction::Down { 0 } else { WIDTH - 1 };
-                    let elligible_cols = Self::elligible_sections(self.board.cols(), open_row);
+                    let elligible_cols = Self::elligible_sections(self.cur_board.cols(), open_row);
                     if elligible_cols.is_empty() {
                         panic!("shifted board does not have open row")
                     }
@@ -243,7 +279,7 @@ impl ThreesGame {
                 }
                 Direction::Left | Direction::Right => {
                     let open_col = if d == Direction::Left { WIDTH - 1 } else { 0 };
-                    let elligible_rows = Self::elligible_sections(self.board.rows(), open_col);
+                    let elligible_rows = Self::elligible_sections(self.cur_board.rows(), open_col);
                     if elligible_rows.len() == 0 {
                         panic!("shifted board does not have open col")
                     }
@@ -253,8 +289,18 @@ impl ThreesGame {
                 }
             };
             let new_val = self.rng.gen_range(1, 2 + 1);
-            self.board.set_value(new_row, new_col, new_val);
+            self.cur_board.set_value(new_row, new_col, new_val);
             self.empty = false;
+            for d in vec![
+                Direction::Down,
+                Direction::Up,
+                Direction::Left,
+                Direction::Right,
+            ] {
+                let mut new_board = self.cur_board;
+                let modified = new_board.shove(d);
+                self.shifted_boards[d] = if modified { Some(new_board) } else { None }
+            }
             MoveResult::Moved(self.check_game_over())
         }
     }
