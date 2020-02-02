@@ -8,6 +8,8 @@ type Score = i32;
 pub struct GameResult {
     pub score: Score,
     pub num_moves: i32,
+    pub final_board: board::Board,
+    pub final_render: String,
 }
 
 pub enum MoveResult {
@@ -121,6 +123,8 @@ impl Game {
         Some(GameResult {
             score: self.cur_board.values().iter().map(|v| v * v).sum(),
             num_moves: self.num_moves,
+            final_board: self.cur_board,
+            final_render: self.render(),
         })
     }
 

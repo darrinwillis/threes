@@ -13,8 +13,12 @@ fn rand_direction(rng: &mut StdRng) -> board::Direction {
     }
 }
 
-pub fn play_game() -> game::GameResult {
-    let mut rng = StdRng::from_rng(rand::thread_rng()).unwrap();
+pub fn play_game(seed: Option<StdRng>) -> game::GameResult {
+    let mut rng = match seed {
+        None => StdRng::from_rng(rand::thread_rng()),
+        Some(seed_rng) => StdRng::from_rng(seed_rng),
+    }
+    .unwrap();
     let mut game = game::Game::new(Some(&mut rng));
 
     let first_move = rand_direction(&mut rng);

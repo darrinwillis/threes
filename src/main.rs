@@ -8,6 +8,7 @@ mod game;
 mod random_player;
 
 use enum_map::EnumMap;
+use rand::prelude::*;
 use rayon::prelude::*;
 use std::io::{stdin, stdout, Write};
 use std::time::Instant;
@@ -87,12 +88,19 @@ fn play_interactive_game() {
     }
 }
 
-fn play_games(num_games: usize) -> Vec<game::GameResult> {
+fn play_games(num_games: usize, seed: Option<StdRng>) -> Vec<(StdRng, game::GameResult)> {
+    let mut rng = match seed {
+        None => StdRng::from_rng(rand::thread_rng()),
+        Some(seed_rng) => StdRng::from_rng(seed_rng),
+    }
+    .unwrap();
     // Play some games
-    let game_nums = (0..num_games).collect::<Vec<usize>>();
-    game_nums
-        .par_iter()
-        .map(|_game_num| random_player::play_game())
+    let game_rngs = (0..num_games)
+        .map(|_i| StdRng::from_rng(&mut rng).unwrap())
+        .collect::<Vec<StdRng>>();
+    game_rngs
+        .into_par_iter()
+        .map(|game_rng| (game_rng.clone(), random_player::play_game(Some(game_rng))))
         .collect()
 }
 
@@ -105,16 +113,18 @@ fn main() {
         let num_games = 100_000;
 
         let start = Instant::now();
-        let results = play_games(num_games);
+        let results = play_games(num_games, None);
         let end = Instant::now();
         let duration = end - start;
-        let max_score = results.iter().map(|r| r.score).max().unwrap();
+        let (best_seed, best_result) = results.into_iter().max_by_key(|r| r.1.score).unwrap();
         println!(
             "Played {} random games in {}s ({}games/s). Max Score: {}",
-            results.len(),
+            num_games,
             duration.as_secs_f32(),
-            results.len() as f32 / duration.as_secs_f32(),
-            max_score,
+            num_games as f32 / duration.as_secs_f32(),
+            best_result.score,
         );
+        let best_board = best_result.final_render;
+        println!("winning board\n{}", best_board);
     }
 }
