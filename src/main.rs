@@ -5,26 +5,17 @@ extern crate termion;
 
 mod board;
 mod game;
-use game::Game;
+mod random_player;
 
 use enum_map::EnumMap;
 use std::io::{stdin, stdout, Write};
+use std::time::{Duration, Instant};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
-fn main() {
-    println!("Hello, world!");
-    let mut game = Game::new();
-    println!("Empty board:\n{}\n", game.render());
-    game.update(board::Direction::Left);
-    println!("{}\n", game.render());
-    game.update(board::Direction::Left);
-    println!("{}\n", game.render());
-    game.update(board::Direction::Left);
-    println!("{}\n", game.render());
-    game = Game::new();
-
+fn play_interactive_game() {
+    let mut game = game::Game::new(None);
     let mut stdout = stdout().into_raw_mode().unwrap();
     let stdin = stdin();
     let stdin = stdin.lock();
@@ -92,5 +83,32 @@ fn main() {
         }
         println!("{}\n", game.render());
         stdout.flush().unwrap();
+    }
+}
+
+fn main() {
+    println!("Hello, world!");
+    let interactive = false;
+    if interactive {
+        play_interactive_game();
+    } else {
+        let mut results = Vec::new();
+        let num_games = 100000;
+
+        let start = Instant::now();
+        // Play some games
+        for _ in 0..num_games {
+            results.push(random_player::play_game());
+        }
+        let end = Instant::now();
+        let duration = end - start;
+        let max_score = results.iter().map(|r| r.score).max().unwrap();
+        println!(
+            "Played {} random games in {}s ({}games/s). Max Score: {}",
+            results.len(),
+            duration.as_secs_f32(),
+            results.len() as f32 / duration.as_secs_f32(),
+            max_score,
+        );
     }
 }

@@ -1,7 +1,7 @@
 pub const WIDTH: usize = 4;
 const NUM_BLOCKS: usize = WIDTH * WIDTH;
 
-#[derive(PartialEq, Copy, Clone, Enum)]
+#[derive(PartialEq, Copy, Clone, Debug, Enum)]
 pub enum Direction {
     Down,
     Up,
@@ -73,7 +73,7 @@ fn shift_down(in_sec: &Section) -> (Section, bool) {
     (out_sec, block_moved)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Board {
     blocks: BoardBlocks,
 }

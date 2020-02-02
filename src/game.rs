@@ -7,6 +7,7 @@ use super::board;
 type Score = i32;
 pub struct GameResult {
     pub score: Score,
+    pub num_moves: i32,
 }
 
 pub enum MoveResult {
@@ -17,7 +18,8 @@ pub enum MoveResult {
 pub struct Game {
     cur_board: board::Board,
     shifted_boards: crate::EnumMap<board::Direction, Option<board::Board>>,
-    rng: rand::rngs::ThreadRng,
+    num_moves: i32,
+    rng: rand::rngs::StdRng,
     next_rank: board::Rank,
     // whether the board is empty; could be moved down into Board, but it's more efficient here.
     empty: bool,
@@ -46,19 +48,24 @@ fn color_rank(rank: board::Rank) -> String {
 }
 
 impl Game {
-    pub fn new() -> Game {
-        let mut rng = rand::thread_rng();
+    pub fn new(seed: Option<&mut StdRng>) -> Game {
+        let mut rng = match seed {
+            None => StdRng::from_rng(rand::thread_rng()),
+            Some(seed_rng) => StdRng::from_rng(seed_rng),
+        }
+        .unwrap();
         let first_rank = Game::rand_rank(&mut rng);
         Game {
             cur_board: board::Board::new(),
             shifted_boards: crate::EnumMap::new(),
             empty: true,
+            num_moves: 0,
             rng,
             next_rank: first_rank,
         }
     }
 
-    fn rand_rank(rng: &mut rand::rngs::ThreadRng) -> board::Rank {
+    fn rand_rank(rng: &mut StdRng) -> board::Rank {
         rng.gen_range(1, 2 + 1)
     }
 
@@ -128,6 +135,7 @@ impl Game {
 
         Some(GameResult {
             score: self.cur_board.values().iter().map(|v| v * v).sum(),
+            num_moves: self.num_moves,
         })
     }
 
@@ -135,6 +143,14 @@ impl Game {
         let ret = self.next_rank;
         self.next_rank = Game::rand_rank(&mut self.rng);
         ret
+    }
+
+    pub fn available_moves(&self) -> Vec<board::Direction> {
+        return self
+            .shifted_boards
+            .iter()
+            .filter_map(|(k, v)| if v.is_some() { Some(k) } else { None })
+            .collect();
     }
 
     pub fn update(&mut self, d: board::Direction) -> MoveResult {
@@ -176,6 +192,7 @@ impl Game {
             };
             let new_val = self.take_next_rank();
             self.cur_board.set_value(new_row, new_col, new_val);
+            self.num_moves += 1;
             self.empty = false;
             for d in vec![
                 board::Direction::Down,
