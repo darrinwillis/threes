@@ -84,7 +84,7 @@ impl Game {
             .iter()
             .map(|row| {
                 row.iter()
-                    .map(|c| format!("{}", color_rank(*c)))
+                    .map(|c| color_rank(*c))
                     .collect::<Vec<String>>()
                     .join("|")
             })
