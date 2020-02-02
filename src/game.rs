@@ -18,6 +18,7 @@ pub struct Game {
     cur_board: board::Board,
     shifted_boards: crate::EnumMap<board::Direction, Option<board::Board>>,
     rng: rand::rngs::ThreadRng,
+    next_rank: board::Rank,
     // whether the board is empty; could be moved down into Board, but it's more efficient here.
     empty: bool,
 }
@@ -46,12 +47,19 @@ fn color_rank(rank: board::Rank) -> String {
 
 impl Game {
     pub fn new() -> Game {
+        let mut rng = rand::thread_rng();
+        let first_rank = Game::rand_rank(&mut rng);
         Game {
             cur_board: board::Board::new(),
             shifted_boards: crate::EnumMap::new(),
             empty: true,
-            rng: rand::thread_rng(),
+            rng,
+            next_rank: first_rank,
         }
+    }
+
+    fn rand_rank(rng: &mut rand::rngs::ThreadRng) -> board::Rank {
+        rng.gen_range(1, 2 + 1)
     }
 
     // Returns the indexes of all the sections which are available
@@ -70,7 +78,8 @@ impl Game {
     }
 
     pub fn render(&self) -> String {
-        self.cur_board
+        let mut rows = self
+            .cur_board
             .rows()
             .iter()
             .map(|row| {
@@ -79,8 +88,14 @@ impl Game {
                     .collect::<Vec<String>>()
                     .join("|")
             })
-            .collect::<Vec<String>>()
-            .join("\r\n")
+            .collect::<Vec<String>>();
+        rows[0] = format!(
+            "{}{:5}|{}| <- next up",
+            rows[0],
+            "",
+            color_rank(self.next_rank)
+        );
+        rows.join("\r\n")
     }
 
     // Render with no coloring
@@ -114,6 +129,12 @@ impl Game {
         Some(GameResult {
             score: self.cur_board.values().iter().map(|v| v * v).sum(),
         })
+    }
+
+    fn take_next_rank(&mut self) -> board::Rank {
+        let ret = self.next_rank;
+        self.next_rank = Game::rand_rank(&mut self.rng);
+        ret
     }
 
     pub fn update(&mut self, d: board::Direction) -> MoveResult {
@@ -153,7 +174,7 @@ impl Game {
                     (selected_row, open_col)
                 }
             };
-            let new_val = self.rng.gen_range(1, 2 + 1);
+            let new_val = self.take_next_rank();
             self.cur_board.set_value(new_row, new_col, new_val);
             self.empty = false;
             for d in vec![
