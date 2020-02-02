@@ -1,3 +1,5 @@
+extern crate termion;
+
 use rand::prelude::*;
 
 use super::board;
@@ -18,6 +20,28 @@ pub struct Game {
     rng: rand::rngs::ThreadRng,
     // whether the board is empty; could be moved down into Board, but it's more efficient here.
     empty: bool,
+}
+
+fn color_rank(rank: board::Rank) -> String {
+    if rank == 1 {
+        format!(
+            "{}{:3}{}",
+            termion::color::Fg(termion::color::Red),
+            rank,
+            termion::color::Fg(termion::color::Reset)
+        )
+    } else if rank == 2 {
+        format!(
+            "{}{:3}{}",
+            termion::color::Fg(termion::color::Blue),
+            rank,
+            termion::color::Fg(termion::color::Reset)
+        )
+    } else if rank == 0 {
+        format!("{:3}", "")
+    } else {
+        format!("{:3}", rank)
+    }
 }
 
 impl Game {
@@ -46,6 +70,21 @@ impl Game {
     }
 
     pub fn render(&self) -> String {
+        self.cur_board
+            .rows()
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|c| format!("{}", color_rank(*c)))
+                    .collect::<Vec<String>>()
+                    .join("|")
+            })
+            .collect::<Vec<String>>()
+            .join("\r\n")
+    }
+
+    // Render with no coloring
+    pub fn plain_render(&self) -> String {
         self.cur_board
             .rows()
             .iter()

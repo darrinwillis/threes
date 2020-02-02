@@ -9,7 +9,7 @@ pub enum Direction {
     Right,
 }
 
-type Rank = i32;
+pub type Rank = i32;
 type BoardBlocks = [Rank; NUM_BLOCKS];
 type Section = [Rank; WIDTH];
 pub type BoardSections = [Section; WIDTH];
