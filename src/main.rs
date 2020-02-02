@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate enum_map;
+extern crate histogram;
 extern crate rand;
 extern crate termion;
 
@@ -116,7 +117,15 @@ fn main() {
         let results = play_games(num_games, None);
         let end = Instant::now();
         let duration = end - start;
-        let (best_seed, best_result) = results.into_iter().max_by_key(|r| r.1.score).unwrap();
+        let scores = results
+            .iter()
+            .map(|r| r.1.score)
+            .collect::<Vec<game::Score>>();
+        let mut histogram = histogram::Histogram::new();
+        for s in scores {
+            histogram.increment(s as u64);
+        }
+        let (_best_seed, best_result) = results.into_iter().max_by_key(|r| r.1.score).unwrap();
         println!(
             "Played {} random games in {}s ({}games/s). Max Score: {}",
             num_games,
@@ -124,6 +133,9 @@ fn main() {
             num_games as f32 / duration.as_secs_f32(),
             best_result.score,
         );
+        for p in vec![1.0, 10.0, 50.0, 90.0, 99.0, 99.9] {
+            println!(" p{:4}: {}", p, histogram.percentile(p).unwrap());
+        }
         let best_board = best_result.final_render;
         println!("winning board\n{}", best_board);
     }

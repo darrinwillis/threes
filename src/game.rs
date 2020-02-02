@@ -4,7 +4,7 @@ use rand::prelude::*;
 
 use super::board;
 
-type Score = i32;
+pub type Score = i32;
 pub struct GameResult {
     pub score: Score,
     pub num_moves: i32,
