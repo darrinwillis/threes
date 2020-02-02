@@ -88,16 +88,12 @@ fn play_interactive_game() {
 }
 
 fn play_games(num_games: usize) -> Vec<game::GameResult> {
-    let mut results = Vec::with_capacity(num_games);
     // Play some games
-
-    let chunk_size = 100;
     let game_nums = (0..num_games).collect::<Vec<usize>>();
-    results = game_nums
+    game_nums
         .par_iter()
-        .map(|game_num| random_player::play_game())
-        .collect();
-    results
+        .map(|_game_num| random_player::play_game())
+        .collect()
 }
 
 fn main() {
@@ -106,7 +102,7 @@ fn main() {
     if interactive {
         play_interactive_game();
     } else {
-        let num_games = 500_000;
+        let num_games = 100_000;
 
         let start = Instant::now();
         let results = play_games(num_games);

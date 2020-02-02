@@ -105,21 +105,6 @@ impl Game {
         rows.join("\r\n")
     }
 
-    // Render with no coloring
-    pub fn plain_render(&self) -> String {
-        self.cur_board
-            .rows()
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|c| format!("{:3}", c.to_string()))
-                    .collect::<Vec<String>>()
-                    .join("|")
-            })
-            .collect::<Vec<String>>()
-            .join("\r\n")
-    }
-
     fn check_game_over(&self) -> Option<GameResult> {
         let no_moves = vec![
             board::Direction::Down,
