@@ -171,3 +171,32 @@ impl Board {
         modified
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shift() {
+        // Test simple shifting for forwards and backwards
+        assert_eq!(shift(&[0, 0, 0, 0], false), ([0, 0, 0, 0], false));
+        assert_eq!(shift(&[1, 0, 0, 0], false), ([1, 0, 0, 0], false));
+        assert_eq!(shift(&[0, 1, 0, 0], false), ([1, 0, 0, 0], true));
+        assert_eq!(shift(&[1, 1, 0, 0], false), ([1, 1, 0, 0], false));
+        assert_eq!(shift(&[1, 0, 0, 1], false), ([1, 0, 1, 0], true));
+        assert_eq!(shift(&[1, 1, 1, 1], false), ([1, 1, 1, 1], false));
+        assert_eq!(shift(&[0, 0, 0, 0], true), ([0, 0, 0, 0], false));
+        assert_eq!(shift(&[0, 0, 0, 1], true), ([0, 0, 0, 1], false));
+        assert_eq!(shift(&[0, 0, 1, 0], true), ([0, 0, 0, 1], true));
+        assert_eq!(shift(&[0, 0, 1, 1], true), ([0, 0, 1, 1], false));
+        assert_eq!(shift(&[1, 0, 0, 1], true), ([0, 1, 0, 1], true));
+        assert_eq!(shift(&[1, 1, 1, 1], true), ([1, 1, 1, 1], false));
+
+        // Test combining
+        assert_eq!(shift(&[1, 2, 0, 0], false), ([3, 0, 0, 0], true));
+        assert_eq!(shift(&[2, 1, 0, 0], false), ([3, 0, 0, 0], true));
+        assert_eq!(shift(&[3, 3, 0, 0], false), ([6, 0, 0, 0], true));
+        assert_eq!(shift(&[3, 6, 0, 0], false), ([3, 6, 0, 0], false));
+        assert_eq!(shift(&[6, 6, 0, 0], false), ([12, 0, 0, 0], true));
+    }
+}
