@@ -106,7 +106,6 @@ fn play_games(num_games: usize, seed: Option<StdRng>) -> Vec<(StdRng, game::Game
 }
 
 fn main() {
-    println!("Hello, world!");
     let interactive = false;
     if interactive {
         play_interactive_game();

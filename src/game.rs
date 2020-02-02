@@ -23,6 +23,7 @@ pub struct Game {
     num_moves: i32,
     rng: rand::rngs::StdRng,
     next_rank: board::Rank,
+    parity: i32, // count of 2s - count of 1s
     // whether the board is empty; could be moved down into Board, but it's more efficient here.
     empty: bool,
 }
@@ -63,6 +64,7 @@ impl Game {
             empty: true,
             num_moves: 0,
             rng,
+            parity: 0,
             next_rank: first_rank,
         }
     }
@@ -130,7 +132,19 @@ impl Game {
 
     fn take_next_rank(&mut self) -> board::Rank {
         let ret = self.next_rank;
-        self.next_rank = Game::rand_rank(&mut self.rng);
+        let range = 100;
+        let multiplier = 3;
+        let threshold = 50 + multiplier * self.parity;
+        self.next_rank = if self.rng.gen_range(0, range) > threshold {
+            2
+        } else {
+            1
+        };
+        if ret == 2 {
+            self.parity += 1;
+        } else if ret == 1 {
+            self.parity -= 1;
+        }
         ret
     }
 
