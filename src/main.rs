@@ -133,9 +133,12 @@ fn main() {
             num_games as f32 / duration.as_secs_f32(),
             best_result.score,
         );
+        println!("  {:5}: {}", "min", histogram.minimum().unwrap());
         for p in vec![1.0, 10.0, 50.0, 90.0, 99.0, 99.9] {
-            println!(" p{:4}: {}", p, histogram.percentile(p).unwrap());
+            println!(" p{:5}: {}", p, histogram.percentile(p).unwrap());
         }
+        println!("  {:5}: {}", "max", histogram.maximum().unwrap());
+        println!(" {:5}: {}", "stddev", histogram.stddev().unwrap());
         let best_board = best_result.final_render;
         println!("winning board\n{}", best_board);
     }
