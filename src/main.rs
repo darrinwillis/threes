@@ -8,8 +8,9 @@ mod game;
 mod random_player;
 
 use enum_map::EnumMap;
+use rayon::prelude::*;
 use std::io::{stdin, stdout, Write};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
@@ -86,20 +87,29 @@ fn play_interactive_game() {
     }
 }
 
+fn play_games(num_games: usize) -> Vec<game::GameResult> {
+    let mut results = Vec::with_capacity(num_games);
+    // Play some games
+
+    let chunk_size = 100;
+    let game_nums = (0..num_games).collect::<Vec<usize>>();
+    results = game_nums
+        .par_iter()
+        .map(|game_num| random_player::play_game())
+        .collect();
+    results
+}
+
 fn main() {
     println!("Hello, world!");
     let interactive = false;
     if interactive {
         play_interactive_game();
     } else {
-        let mut results = Vec::new();
-        let num_games = 100000;
+        let num_games = 500_000;
 
         let start = Instant::now();
-        // Play some games
-        for _ in 0..num_games {
-            results.push(random_player::play_game());
-        }
+        let results = play_games(num_games);
         let end = Instant::now();
         let duration = end - start;
         let max_score = results.iter().map(|r| r.score).max().unwrap();
