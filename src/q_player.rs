@@ -60,7 +60,6 @@ impl QAgent {
         new_board: &board::Board,
         reward: f32,
     ) {
-        print!("updating");
         let new_q = self.q_table.get_action_rewards(board)[action] * (1.0 - self.learning_rate)
             + self.learning_rate
                 * (reward + self.discount_factor * self.q_table.max_action(new_board).1);
