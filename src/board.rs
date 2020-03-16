@@ -73,7 +73,7 @@ fn shift_down(in_sec: &Section) -> (Section, bool) {
     (out_sec, block_moved)
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Board {
     blocks: BoardBlocks,
 }
@@ -198,5 +198,10 @@ mod tests {
         assert_eq!(shift(&[3, 3, 0, 0], false), ([6, 0, 0, 0], true));
         assert_eq!(shift(&[3, 6, 0, 0], false), ([3, 6, 0, 0], false));
         assert_eq!(shift(&[6, 6, 0, 0], false), ([12, 0, 0, 0], true));
+    }
+
+    #[test]
+    fn test_board_traits() {
+        assert_eq!(ZERO_BOARD_BLOCKS, ZERO_BOARD_BLOCKS);
     }
 }

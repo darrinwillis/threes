@@ -6,6 +6,7 @@ extern crate termion;
 
 mod board;
 mod game;
+mod q_player;
 mod random_player;
 
 use enum_map::EnumMap;
@@ -122,7 +123,7 @@ fn main() {
             .collect::<Vec<game::Score>>();
         let mut histogram = histogram::Histogram::new();
         for s in scores {
-            histogram.increment(s as u64);
+            histogram.increment(s as u64).unwrap();
         }
         let (_best_seed, best_result) = results.into_iter().max_by_key(|r| r.1.score).unwrap();
         println!(
