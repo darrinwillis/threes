@@ -9,6 +9,13 @@ pub enum Direction {
     Right,
 }
 
+pub const ALL_DIRECTIONS: [Direction; 4] = [
+    Direction::Down,
+    Direction::Up,
+    Direction::Left,
+    Direction::Right,
+];
+
 pub type Rank = i32;
 type BoardBlocks = [Rank; NUM_BLOCKS];
 type Section = [Rank; WIDTH];
@@ -83,6 +90,10 @@ impl Board {
         Board {
             blocks: ZERO_BOARD_BLOCKS,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.blocks == ZERO_BOARD_BLOCKS
     }
 
     fn get_row(&self, r: usize) -> Section {

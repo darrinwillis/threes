@@ -3,6 +3,7 @@ extern crate termion;
 use rand::prelude::*;
 
 use super::board;
+use super::utils;
 
 pub type Score = i32;
 pub struct GameResult {
@@ -52,15 +53,12 @@ fn color_rank(rank: board::Rank) -> String {
 
 impl Game {
     pub fn new(seed: Option<&mut StdRng>) -> Game {
-        let mut rng = match seed {
-            None => StdRng::from_rng(rand::thread_rng()),
-            Some(seed_rng) => StdRng::from_rng(seed_rng),
-        }
-        .unwrap();
+        let mut rng = utils::resolve_rng_from_seed(seed);
         let first_rank = Game::rand_rank(&mut rng);
+        let new_board = board::Board::new();
         Game {
-            cur_board: board::Board::new(),
-            shifted_boards: crate::EnumMap::new(),
+            cur_board: new_board,
+            shifted_boards: Self::take_all_moves(&new_board),
             empty: true,
             num_moves: 0,
             rng,
@@ -110,14 +108,9 @@ impl Game {
     }
 
     fn check_game_over(&self) -> Option<GameResult> {
-        let no_moves = vec![
-            board::Direction::Down,
-            board::Direction::Up,
-            board::Direction::Left,
-            board::Direction::Right,
-        ]
-        .iter()
-        .all(|d| self.shifted_boards[*d].is_none());
+        let no_moves = board::ALL_DIRECTIONS
+            .iter()
+            .all(|d| self.shifted_boards[*d].is_none());
         if !no_moves {
             return None;
         }
@@ -148,12 +141,29 @@ impl Game {
         ret
     }
 
+    fn take_all_moves(
+        board: &board::Board,
+    ) -> crate::EnumMap<board::Direction, Option<board::Board>> {
+        let mut next_boards = crate::EnumMap::new();
+        for d in &board::ALL_DIRECTIONS {
+            let mut new_board = *board;
+            let modified = new_board.shove(*d);
+            next_boards[*d] = if modified { Some(new_board) } else { None }
+        }
+        next_boards
+    }
+
     pub fn available_moves(&self) -> Vec<board::Direction> {
-        return self
+        let next_moves = self
             .shifted_boards
             .iter()
             .filter_map(|(k, v)| if v.is_some() { Some(k) } else { None })
-            .collect();
+            .collect::<Vec<board::Direction>>();
+        if next_moves.len() == 0 && self.cur_board.is_empty() {
+            board::ALL_DIRECTIONS.to_vec()
+        } else {
+            next_moves
+        }
     }
 
     pub fn update(&mut self, d: board::Direction) -> MoveResult {
@@ -197,16 +207,7 @@ impl Game {
             self.cur_board.set_value(new_row, new_col, new_val);
             self.num_moves += 1;
             self.empty = false;
-            for d in vec![
-                board::Direction::Down,
-                board::Direction::Up,
-                board::Direction::Left,
-                board::Direction::Right,
-            ] {
-                let mut new_board = self.cur_board;
-                let modified = new_board.shove(d);
-                self.shifted_boards[d] = if modified { Some(new_board) } else { None }
-            }
+            self.shifted_boards = Self::take_all_moves(&self.cur_board);
             MoveResult::Moved(self.check_game_over())
         }
     }

@@ -4,10 +4,12 @@ extern crate histogram;
 extern crate rand;
 extern crate termion;
 
+mod agent_runner;
 mod board;
 mod game;
-mod q_player;
-mod random_player;
+mod q_agent;
+mod random_agent;
+mod utils;
 
 use enum_map::EnumMap;
 use rand::prelude::*;
@@ -102,7 +104,13 @@ fn play_games(num_games: usize, seed: Option<StdRng>) -> Vec<(StdRng, game::Game
         .collect::<Vec<StdRng>>();
     game_rngs
         .into_par_iter()
-        .map(|game_rng| (game_rng.clone(), random_player::play_game(Some(game_rng))))
+        .map(|seed_rng| {
+            // This must be first; we want to stash the original rng away for later
+            let mut game_rng = seed_rng.clone();
+            let agent = &mut random_agent::RandomAgent::new(Some(&mut game_rng));
+            let result = agent_runner::play_game(Some(&mut game_rng), agent);
+            (seed_rng, result)
+        })
         .collect()
 }
 
