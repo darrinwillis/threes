@@ -19,7 +19,7 @@ pub enum MoveResult {
 }
 
 pub struct Game {
-    cur_board: board::Board,
+    pub cur_board: board::Board,
     shifted_boards: crate::EnumMap<board::Direction, Option<board::Board>>,
     num_moves: i32,
     rng: rand::rngs::StdRng,

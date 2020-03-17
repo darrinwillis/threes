@@ -26,6 +26,7 @@ pub fn play_game<A: Agent>(seed: Option<&mut StdRng>, agent: &mut A) -> game::Ga
         // We already checked the available moves, this should work
         match move_result {
             game::MoveResult::Moved(Some(result)) => {
+                assert!(game.available_moves().is_empty());
                 return result;
             }
             game::MoveResult::Moved(None) => {}
