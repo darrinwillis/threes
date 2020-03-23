@@ -5,6 +5,7 @@ extern crate rand;
 extern crate termion;
 
 mod agent_runner;
+mod agent_trainer;
 mod board;
 mod game;
 mod q_agent;
@@ -92,12 +93,8 @@ fn play_interactive_game() {
     }
 }
 
-fn play_games(num_games: usize, seed: Option<StdRng>) -> Vec<(StdRng, game::GameResult)> {
-    let mut rng = match seed {
-        None => StdRng::from_rng(rand::thread_rng()),
-        Some(seed_rng) => StdRng::from_rng(seed_rng),
-    }
-    .unwrap();
+fn play_games(num_games: usize, seed: Option<&mut StdRng>) -> Vec<(StdRng, game::GameResult)> {
+    let mut rng = utils::resolve_rng_from_seed(seed);
     // Play some games
     let game_rngs = (0..num_games)
         .map(|_i| StdRng::from_rng(&mut rng).unwrap())
@@ -114,40 +111,56 @@ fn play_games(num_games: usize, seed: Option<StdRng>) -> Vec<(StdRng, game::Game
         .collect()
 }
 
-fn main() {
-    let interactive = false;
-    if interactive {
-        play_interactive_game();
-    } else {
-        let num_games = 100_000;
-
-        let start = Instant::now();
-        let results = play_games(num_games, None);
-        let end = Instant::now();
-        let duration = end - start;
-        let scores = results
-            .iter()
-            .map(|r| r.1.score)
-            .collect::<Vec<game::Score>>();
-        let mut histogram = histogram::Histogram::new();
-        for s in scores {
-            histogram.increment(s as u64).unwrap();
-        }
-        let (_best_seed, best_result) = results.into_iter().max_by_key(|r| r.1.score).unwrap();
-        println!(
-            "Played {} random games in {}s ({}games/s). Max Score: {}",
-            num_games,
-            duration.as_secs_f32(),
-            num_games as f32 / duration.as_secs_f32(),
-            best_result.score,
-        );
-        println!("  {:5}: {}", "min", histogram.minimum().unwrap());
-        for p in vec![1.0, 10.0, 50.0, 90.0, 99.0, 99.9] {
-            println!(" p{:5}: {}", p, histogram.percentile(p).unwrap());
-        }
-        println!("  {:5}: {}", "max", histogram.maximum().unwrap());
-        println!(" {:5}: {}", "stddev", histogram.stddev().unwrap());
-        let best_board = best_result.final_render;
-        println!("winning board\n{}", best_board);
+fn play_and_analyze_games(num_games: usize) {
+    let start = Instant::now();
+    let results = play_games(num_games, None);
+    let end = Instant::now();
+    let duration = end - start;
+    let scores = results
+        .iter()
+        .map(|r| r.1.score)
+        .collect::<Vec<game::Score>>();
+    let mut histogram = histogram::Histogram::new();
+    for s in scores {
+        histogram.increment(s as u64).unwrap();
     }
+    let (_best_seed, best_result) = results.into_iter().max_by_key(|r| r.1.score).unwrap();
+    println!(
+        "Played {} random games in {}s ({}games/s). Max Score: {}",
+        num_games,
+        duration.as_secs_f32(),
+        num_games as f32 / duration.as_secs_f32(),
+        best_result.score,
+    );
+    println!("  {:5}: {}", "min", histogram.minimum().unwrap());
+    for p in vec![1.0, 10.0, 50.0, 90.0, 99.0, 99.9] {
+        println!(" p{:5}: {}", p, histogram.percentile(p).unwrap());
+    }
+    println!("  {:5}: {}", "max", histogram.maximum().unwrap());
+    println!(" {:5}: {}", "stddev", histogram.stddev().unwrap());
+    let best_board = best_result.final_render;
+    println!("winning board\n{}", best_board);
+}
+
+fn train_q_agent() {
+    let mut agent = q_agent::QAgent::new(None);
+    let train_result = agent_trainer::train_agent_from_scratch(&mut agent);
+    agent_trainer::analyze_report(train_result);
+}
+
+fn main() {
+    enum Mode {
+        Interactive,
+        RunRandomGames,
+        TrainAgent,
+    };
+    let mode = Mode::TrainAgent;
+    match mode {
+        Mode::Interactive => play_interactive_game(),
+        Mode::RunRandomGames => {
+            let num_games = 100_000;
+            play_and_analyze_games(num_games);
+        }
+        Mode::TrainAgent => train_q_agent(),
+    };
 }

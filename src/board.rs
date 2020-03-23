@@ -92,6 +92,20 @@ impl Board {
         }
     }
 
+    pub fn simple_render(&self) -> String {
+        let rows = self
+            .rows()
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|c| format!("{:3}", c))
+                    .collect::<Vec<String>>()
+                    .join("|")
+            })
+            .collect::<Vec<String>>();
+        rows.join("\r\n")
+    }
+
     pub fn is_empty(&self) -> bool {
         self.blocks == ZERO_BOARD_BLOCKS
     }

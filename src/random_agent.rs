@@ -25,4 +25,16 @@ impl Agent for RandomAgent {
         let op_idx = self.rng.gen_range(0, num_options);
         options[op_idx]
     }
+
+    fn update(
+        &mut self,
+        _board: &board::Board,
+        _action: board::Direction,
+        _new_board: &board::Board,
+        _reward: f64,
+    ) {
+        // We don't learn
+    }
+
+    fn print(&self) {}
 }

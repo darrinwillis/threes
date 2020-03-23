@@ -81,26 +81,13 @@ impl QAgent {
         let mut rng = utils::resolve_rng_from_seed(seed);
         let random_agent = RandomAgent::new(Some(&mut rng));
         QAgent {
-            rng: rng,
-            random_agent: random_agent,
+            rng,
+            random_agent,
             q_table: QTable::new(),
             learning_rate: LEARNING_RATE,
             discount_factor: DISCOUNT_FACTOR,
             exploration_rate: EXPLORATION_RATE,
         }
-    }
-
-    pub fn update(
-        &mut self,
-        board: &board::Board,
-        action: board::Direction,
-        new_board: &board::Board,
-        reward: f64,
-    ) {
-        let new_q = self.q_table.q_value(board, action) * (1.0 - self.learning_rate)
-            + self.learning_rate
-                * (reward + self.discount_factor * self.q_table.max_action(new_board).1);
-        self.q_table.get_action_rewards(board)[action] = new_q;
     }
 }
 
@@ -113,6 +100,29 @@ impl Agent for QAgent {
             // take the best option
             self.q_table
                 .max_q_from_directions(&game.cur_board, &game.available_moves())
+        }
+    }
+
+    fn update(
+        &mut self,
+        board: &board::Board,
+        action: board::Direction,
+        new_board: &board::Board,
+        reward: f64,
+    ) {
+        let new_q = self.q_table.q_value(board, action) * (1.0 - self.learning_rate)
+            + self.learning_rate
+                * (reward + self.discount_factor * self.q_table.max_action(new_board).1);
+        self.q_table.get_action_rewards(board)[action] = new_q;
+    }
+
+    fn print(&self) {
+        println!("qtable {} entries", self.q_table.action_rewards.len());
+        for (board, actions) in self.q_table.action_rewards.iter().take(10) {
+            println!("{}", board.simple_render());
+            for d in &board::ALL_DIRECTIONS {
+                println!("entry[{:?}] {}", d, actions[*d]);
+            }
         }
     }
 }

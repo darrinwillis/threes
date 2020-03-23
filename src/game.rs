@@ -107,6 +107,10 @@ impl Game {
         rows.join("\r\n")
     }
 
+    pub fn score(&self) -> Score {
+        self.cur_board.values().iter().map(|v| v * v).sum()
+    }
+
     fn check_game_over(&self) -> Option<GameResult> {
         let no_moves = board::ALL_DIRECTIONS
             .iter()
@@ -116,7 +120,7 @@ impl Game {
         }
 
         Some(GameResult {
-            score: self.cur_board.values().iter().map(|v| v * v).sum(),
+            score: self.score(),
             num_moves: self.num_moves,
             final_board: self.cur_board,
             final_render: self.render(),
