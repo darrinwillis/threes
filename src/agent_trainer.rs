@@ -15,7 +15,7 @@ pub struct TrainResult<'a, A: Agent> {
 
 pub fn train_agent_from_scratch<A: Agent>(agent: &mut A) -> TrainResult<A> {
     let num_generations = 100;
-    let num_episodes_per_gen = 10000;
+    let num_episodes_per_gen = 100;
     let mut rng = utils::resolve_rng_from_seed(None);
 
     let mut generations = Vec::new();

@@ -124,16 +124,19 @@ impl Agent for QAgent {
             .action_rewards
             .iter()
             // Count the number of non-zero q table entries for this board
-            .map(|(_b, acts)| acts.iter().filter(|(_d, q)| q.abs() > 0.001).count())
-            .collect::<Vec<usize>>();
-        let q_counts = (0..4)
+            .map(|(_b, acts)| (*acts, acts.iter().filter(|(_d, q)| q.abs() > 0.001).count()))
+            .collect::<Vec<(ActionRewards, usize)>>();
+        let q_counts = (0..5)
             .map(|fullness| {
-                nonzero_q_value_counts
-                    .iter()
-                    .filter(|c| **c == fullness as usize)
-                    .count()
+                (
+                    fullness,
+                    nonzero_q_value_counts
+                        .iter()
+                        .filter(|(_acts, c)| *c == fullness as usize)
+                        .count(),
+                )
             })
-            .collect::<Vec<usize>>();
+            .collect::<HashMap<i32, usize>>();
         println!("Q table fullness:\n{:?}", q_counts);
         for (board, actions) in self.q_table.action_rewards.iter().take(3) {
             println!("{}", board.simple_render());
