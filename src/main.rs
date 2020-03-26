@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate enum_map;
 extern crate histogram;
+#[macro_use]
+extern crate itertools;
+extern crate pprof;
 extern crate rand;
 extern crate termion;
 
@@ -15,6 +18,7 @@ mod utils;
 use enum_map::EnumMap;
 use rand::prelude::*;
 use rayon::prelude::*;
+use std::fs::File;
 use std::io::{stdin, stdout, Write};
 use std::time::Instant;
 use termion::event::Key;
@@ -155,6 +159,12 @@ fn main() {
         TrainAgent,
     };
     let mode = Mode::TrainAgent;
+    let profile = false;
+    let guard = if profile {
+        Some(pprof::ProfilerGuard::new(100).unwrap())
+    } else {
+        None
+    };
     match mode {
         Mode::Interactive => play_interactive_game(),
         Mode::RunRandomGames => {
@@ -163,4 +173,11 @@ fn main() {
         }
         Mode::TrainAgent => train_q_agent(),
     };
+    if let Some(g) = guard {
+        if let Ok(report) = g.report().build() {
+            println!("report: {}", &report);
+            let file = File::create("flamegraph.svg").unwrap();
+            report.flamegraph(file).unwrap();
+        };
+    }
 }

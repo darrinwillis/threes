@@ -4,6 +4,7 @@ use super::game;
 use super::random_agent::RandomAgent;
 use super::utils;
 
+use histogram;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -118,7 +119,23 @@ impl Agent for QAgent {
 
     fn print(&self) {
         println!("qtable {} entries", self.q_table.action_rewards.len());
-        for (board, actions) in self.q_table.action_rewards.iter().take(10) {
+        let nonzero_q_value_counts = self
+            .q_table
+            .action_rewards
+            .iter()
+            // Count the number of non-zero q table entries for this board
+            .map(|(_b, acts)| acts.iter().filter(|(_d, q)| q.abs() > 0.001).count())
+            .collect::<Vec<usize>>();
+        let q_counts = (0..4)
+            .map(|fullness| {
+                nonzero_q_value_counts
+                    .iter()
+                    .filter(|c| **c == fullness as usize)
+                    .count()
+            })
+            .collect::<Vec<usize>>();
+        println!("Q table fullness:\n{:?}", q_counts);
+        for (board, actions) in self.q_table.action_rewards.iter().take(3) {
             println!("{}", board.simple_render());
             for d in &board::ALL_DIRECTIONS {
                 println!("entry[{:?}] {}", d, actions[*d]);
