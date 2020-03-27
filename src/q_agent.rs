@@ -124,21 +124,32 @@ impl Agent for QAgent {
             .action_rewards
             .iter()
             // Count the number of non-zero q table entries for this board
-            .map(|(_b, acts)| (*acts, acts.iter().filter(|(_d, q)| q.abs() > 0.001).count()))
-            .collect::<Vec<(ActionRewards, usize)>>();
+            .map(|(b, acts)| {
+                (
+                    b,
+                    acts,
+                    acts.iter().filter(|(_d, q)| q.abs() > 0.001).count(),
+                )
+            })
+            .collect::<Vec<(&board::Board, &ActionRewards, usize)>>();
         let q_counts = (0..5)
             .map(|fullness| {
                 (
                     fullness,
                     nonzero_q_value_counts
                         .iter()
-                        .filter(|(_acts, c)| *c == fullness as usize)
+                        .filter(|(_b, _acts, c)| *c == fullness as usize)
                         .count(),
                 )
             })
             .collect::<HashMap<i32, usize>>();
         println!("Q table fullness:\n{:?}", q_counts);
-        for (board, actions) in self.q_table.action_rewards.iter().take(3) {
+        let full_tables = nonzero_q_value_counts
+            .iter()
+            .filter(|(_b, _acts, c)| *c == 4)
+            .collect::<Vec<&(&board::Board, &ActionRewards, usize)>>();
+        //for (board, actions) in self.q_table.action_rewards.iter().take(3) {
+        for (board, actions, _) in full_tables.iter().take(3) {
             println!("{}", board.simple_render());
             for d in &board::ALL_DIRECTIONS {
                 println!("entry[{:?}] {}", d, actions[*d]);

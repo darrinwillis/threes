@@ -16,13 +16,14 @@ pub struct TrainResult<'a, A: Agent> {
 pub fn train_agent_from_scratch<A: Agent>(agent: &mut A) -> TrainResult<A> {
     let num_generations = 100;
     let num_episodes_per_gen = 100;
-    let mut rng = utils::resolve_rng_from_seed(None);
+    let rng = utils::resolve_rng_from_seed(None);
 
     let mut generations = Vec::new();
     for _gen in 0..num_generations {
         let mut scores = Vec::new();
         for _episode in 0..num_episodes_per_gen {
-            let result = agent_runner::play_game(Some(&mut rng), agent);
+            // Note that we're running with the SAME game every time here
+            let result = agent_runner::play_game(Some(&mut rng.clone()), agent);
             let score = result.score;
             scores.push(score);
         }
