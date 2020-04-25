@@ -16,6 +16,7 @@ pub const ALL_DIRECTIONS: [Direction; 4] = [
     Direction::Right,
 ];
 
+pub type StandardFormBoard = Board;
 pub type Rank = i32;
 type BoardBlocks = [Rank; NUM_BLOCKS];
 type Section = [Rank; WIDTH];
@@ -92,6 +93,16 @@ impl Board {
         }
     }
 
+    pub fn from_rows(rows: &BoardSections) -> Board {
+        let mut board = Board::new();
+        for i in 0..WIDTH {
+            for c in 0..WIDTH {
+                board.blocks[i * WIDTH + c] = rows[i][c];
+            }
+        }
+        board
+    }
+
     pub fn simple_render(&self) -> String {
         let rows = self
             .rows()
@@ -118,7 +129,7 @@ impl Board {
         new_row
     }
 
-    fn set_row(&mut self, r: usize, sec: Section) {
+    fn set_row(&mut self, r: usize, sec: &Section) {
         for i in 0..WIDTH {
             self.blocks[r * WIDTH + i] = sec[i];
         }
@@ -140,7 +151,7 @@ impl Board {
         new_col
     }
 
-    fn set_col(&mut self, c: usize, sec: Section) {
+    fn set_col(&mut self, c: usize, sec: &Section) {
         for i in 0..WIDTH {
             self.blocks[i * WIDTH + c] = sec[i];
         }
@@ -149,6 +160,7 @@ impl Board {
     pub fn cols(&self) -> BoardSections {
         let mut sections = ZERO_BOARD_SECTIONS;
         for i in 0..WIDTH {
+            println!("i is {}", i);
             sections[i] = self.get_col(i);
         }
         sections
@@ -178,7 +190,7 @@ impl Board {
                     let (new_col, col_modified) = shift(&section, increasing);
                     if col_modified {
                         modified = true;
-                        self.set_col(i, new_col);
+                        self.set_col(i, &new_col);
                     }
                 }
             }
@@ -188,12 +200,44 @@ impl Board {
                     let (new_row, row_modified) = shift(&section, increasing);
                     if row_modified {
                         modified = true;
-                        self.set_row(i, new_row);
+                        self.set_row(i, &new_row);
                     }
                 }
             }
         };
         modified
+    }
+
+    // Flip along the horizontal access, so each row keeps the same set of values
+    pub fn h_flip(&mut self) {
+        for i in 0..WIDTH / 2 {
+            let j = WIDTH - i - 1;
+            let tmp = self.get_col(i);
+            self.set_col(i, &self.get_col(j));
+            self.set_col(j, &tmp);
+        }
+    }
+
+    // Flip along the vertical access, so each row keeps the same set of values
+    pub fn v_flip(&mut self) {
+        for i in 0..WIDTH / 2 {
+            let j = WIDTH - i - 1;
+            let tmp = self.get_row(i);
+            self.set_row(i, &self.get_row(j));
+            self.set_row(j, &tmp);
+        }
+    }
+
+    pub fn get_standard_form(&self) -> StandardFormBoard {
+        /* All of these forms are identical:
+         * AB DA CD BC - Rotations
+         * DC CB BA AD
+         *
+         * AD BA CB DC - Rotations after a parity flip
+         * BC CD DA AB
+         */
+        let s_board = *self;
+        s_board
     }
 }
 
@@ -228,5 +272,55 @@ mod tests {
     #[test]
     fn test_board_traits() {
         assert_eq!(ZERO_BOARD_BLOCKS, ZERO_BOARD_BLOCKS);
+    }
+
+    #[test]
+    fn test_manipulation() {
+        let b = Board::from_rows(&[[1, 2, 3, 6], [3, 3, 6, 6], [3, 3, 6, 6], [3, 3, 6, 6]]);
+        assert_eq!(b, b);
+        let mut board = Board::new();
+        board.set_row(0, &[1, 2, 8, 4]);
+        assert_eq!(
+            board,
+            Board::from_rows(&[[1, 2, 8, 4], ZERO_SECTION, ZERO_SECTION, ZERO_SECTION])
+        );
+    }
+
+    #[test]
+    fn test_flips() {
+        let b = Board::from_rows(&[
+            [1, 2, 3, 6],
+            [3, 6, 12, 24],
+            [6, 12, 24, 48],
+            [12, 24, 48, 96],
+        ]);
+        let mut h = b;
+        h.h_flip();
+        assert_eq!(
+            h,
+            Board::from_rows(&[
+                [6, 3, 2, 1],
+                [24, 12, 6, 3],
+                [48, 24, 12, 6],
+                [96, 48, 24, 12],
+            ])
+        );
+        let mut v = b;
+        v.v_flip();
+        assert_eq!(
+            v,
+            Board::from_rows(&[
+                [12, 24, 48, 96],
+                [6, 12, 24, 48],
+                [3, 6, 12, 24],
+                [1, 2, 3, 6],
+            ])
+        );
+    }
+
+    #[test]
+    fn test_standard_form() {
+        let b = Board::from_rows(&[[1, 2, 0, 0], [3, 6, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
+        assert_eq!(b, b.get_standard_form());
     }
 }

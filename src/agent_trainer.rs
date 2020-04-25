@@ -1,7 +1,6 @@
 use super::agent_runner;
 use super::agent_runner::Agent;
 use super::utils;
-use itertools::zip;
 use std::iter;
 
 struct GenerationResult {

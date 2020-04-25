@@ -4,10 +4,12 @@ use super::game;
 use super::random_agent::RandomAgent;
 use super::utils;
 
-use histogram;
+// use histogram;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+
+type StandardFormBoard = board::Board;
 
 type ActionRewards = crate::EnumMap<board::Direction, f64>;
 //const EMPTY_ACTION_REWARDS : ActionRewards =
@@ -16,7 +18,7 @@ const DISCOUNT_FACTOR: f64 = 0.1;
 const EXPLORATION_RATE: f64 = 0.1;
 
 pub struct QTable {
-    action_rewards: HashMap<board::Board, ActionRewards>,
+    action_rewards: HashMap<StandardFormBoard, ActionRewards>,
 }
 
 pub struct QAgent {
