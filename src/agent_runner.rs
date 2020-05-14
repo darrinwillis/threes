@@ -28,8 +28,11 @@ pub fn play_game<A: Agent>(seed: Option<&mut StdRng>, agent: &mut A) -> game::Ga
         assert!(!options.is_empty());
         let direction = agent.take_action(&game);
         let prev_board = game.cur_board;
+        let prev_score = game.score();
         let move_result = game.update(direction);
-        agent.update(&prev_board, direction, &game.cur_board, game.score() as f64);
+        let new_score = game.score();
+        let reward = new_score - prev_score;
+        agent.update(&prev_board, direction, &game.cur_board, reward as f64);
         // We already checked the available moves, this should work
         match move_result {
             game::MoveResult::Moved(Some(result)) => {

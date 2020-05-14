@@ -5,7 +5,7 @@ use super::game;
 use super::random_agent::RandomAgent;
 use super::utils;
 
-// use histogram;
+use histogram;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -14,9 +14,9 @@ type StandardFormBoard = board::Board;
 
 type ActionRewards = crate::EnumMap<Direction, f64>;
 //const EMPTY_ACTION_REWARDS : ActionRewards =
-const LEARNING_RATE: f64 = 0.9;
+const LEARNING_RATE: f64 = 0.5;
 const DISCOUNT_FACTOR: f64 = 0.9;
-const EXPLORATION_RATE: f64 = 0.7;
+const EXPLORATION_RATE: f64 = 0.1;
 
 struct RewardTable {
     rewards: ActionRewards,
@@ -102,7 +102,7 @@ impl QTable {
                     Direction::Left => 80.0,
                     Direction::Up => 40.0,
                     Direction::Down => -40.0,
-                    Direction::Right => -80.0,
+                    Direction::Right => -180.0,
                 }
             })
         });
@@ -209,13 +209,24 @@ impl Agent for QAgent {
         reward_tables
             .sort_unstable_by(|(_, acts_x), (_, acts_y)| acts_x.read_count.cmp(&acts_y.read_count));
 
+        let mut histogram = histogram::Histogram::new();
+        for table in reward_tables.iter() {
+            histogram.increment(table.1.read_count as u64).unwrap();
+        }
+        println!("distribution of read counts:");
+        println!("percentile, read count");
+        for p in vec![1.0, 10.0, 50.0, 90.0, 99.0, 99.9, 99.99] {
+            println!(" p{:5}: {}", p, histogram.percentile(p).unwrap());
+        }
+        println!("------------------------\n");
+
         for (ii, table) in reward_tables.iter().rev().take(num_top_tables).enumerate() {
             println!("#{} table [{} reads]", ii, table.1.read_count);
             println!("{}", table.0.simple_render());
             for d in &board::ALL_DIRECTIONS {
                 println!("entry[{:?}] {}", d, table.1.rewards[*d]);
             }
-            println!("------------------------\n")
+            println!("------------------------\n");
         }
 
         let top_table = self
