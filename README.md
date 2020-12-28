@@ -19,3 +19,4 @@ There is a Q agent implementation which keeps a score table for each board state
    - For a given board, graph action scores across a learning period
    - For a given learning session, graph the agent's final scores over the session
    - Graph the distribution of number of visitations of each board state
+- Add lookahead to the agent so it explores the possible outcomes before taking an action
