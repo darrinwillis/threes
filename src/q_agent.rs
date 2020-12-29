@@ -18,7 +18,7 @@ const LEARNING_RATE: f64 = 0.5;
 const DISCOUNT_FACTOR: f64 = 0.9;
 const EXPLORATION_RATE: f64 = 0.1;
 
-struct RewardTable {
+pub struct RewardTable {
     rewards: ActionRewards,
     read_count: i64,
 }
@@ -37,7 +37,7 @@ pub struct QAgent {
 }
 
 impl RewardTable {
-    pub fn new() -> RewardTable {
+    pub fn _new() -> RewardTable {
         RewardTable {
             rewards: crate::EnumMap::new(),
             read_count: 0,
@@ -254,7 +254,8 @@ mod tests {
         let empty_board = board::Board::new();
         let mut test_actions = crate::EnumMap::new();
         test_actions[Direction::Down] = 42.0;
-        table.action_rewards.insert(empty_board, test_actions);
+        let reward_table = RewardTable::from_map(test_actions);
+        table.action_rewards.insert(empty_board, reward_table);
         assert_eq!(table.max_action(&empty_board), (Direction::Down, 42.0));
         // table.action_rewards[&empty_board] = test_actions;
     }
@@ -267,9 +268,11 @@ mod tests {
         board1.set_value(0, 0, 1);
         let reward = 100.0;
         let action = Direction::Up;
+        let old_reward = agent.q_table.get_reward_table(&board0).rewards[action];
         agent.update(&board0, action, &board1, reward);
         // Our updated reward in the q table is about 60
-        assert!(agent.q_table.get_reward_table(&board0)[action] - 60.0 < 0.01);
+        let new_reward = agent.q_table.get_reward_table(&board0).rewards[action];
+        assert_ne!(old_reward, new_reward);
     }
 
     #[test]

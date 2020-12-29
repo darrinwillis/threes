@@ -152,7 +152,11 @@ impl Game {
         for d in &board::ALL_DIRECTIONS {
             let mut new_board = *board;
             let modified = new_board.shove(*d);
-            next_boards[*d] = if modified { Some(new_board) } else { None }
+            next_boards[*d] = if modified || new_board.is_empty() {
+                Some(new_board)
+            } else {
+                None
+            }
         }
         next_boards
     }
@@ -214,5 +218,41 @@ impl Game {
             self.shifted_boards = Self::take_all_moves(&self.cur_board);
             MoveResult::Moved(self.check_game_over())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_full_play() {
+        let mut game = Game::new(None);
+
+        let mut i = 0;
+        let result = loop {
+            println!("Board #{}:\n{}", i, game.render());
+            if let Some(game_result) = game.check_game_over() {
+                break game_result;
+            }
+
+            let moves = game.available_moves();
+            // We just checked for game over
+            assert_ne!(moves.len(), 0);
+
+            let first_move = moves[0];
+
+            let prev_score = game.score();
+
+            let move_result = game.update(first_move);
+            if let MoveResult::Failed = move_result {
+                // We shouldn't be able to take a failed move
+                assert!(false);
+            }
+            assert!(game.score() >= prev_score);
+            i += 1;
+        };
+        assert_ne!(result.num_moves, 0);
+        assert_ne!(result.score, 0);
     }
 }
