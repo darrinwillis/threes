@@ -1,15 +1,23 @@
+use serde::{Deserialize, Serialize};
+
 use super::agent_runner;
 use super::agent_runner::Agent;
 use super::utils;
 use std::iter;
 
-struct GenerationResult {
-    scores: Vec<i32>,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GenerationResult {
+    pub scores: Vec<i32>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TrainingOutcomes {
+    pub generations: Vec<GenerationResult>,
 }
 
 pub struct TrainResult<'a, A: Agent> {
-    generations: Vec<GenerationResult>,
-    agent: &'a A,
+    pub outcomes: TrainingOutcomes,
+    pub agent: &'a A,
 }
 
 pub fn train_agent_from_scratch<A: Agent>(agent: &mut A) -> TrainResult<A> {
@@ -28,7 +36,8 @@ pub fn train_agent_from_scratch<A: Agent>(agent: &mut A) -> TrainResult<A> {
         }
         generations.push(GenerationResult { scores });
     }
-    TrainResult { generations, agent }
+    let outcomes = TrainingOutcomes { generations };
+    TrainResult { outcomes, agent }
 }
 
 fn mean(data: &[i32]) -> Option<f32> {
@@ -72,11 +81,13 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
 
 pub fn analyze_report<A: Agent>(train_result: TrainResult<A>) {
     let mean_per_gen = train_result
+        .outcomes
         .generations
         .iter()
         .map(|tr| mean(&tr.scores).unwrap())
         .collect::<Vec<f32>>();
     let std_dev_per_gen = train_result
+        .outcomes
         .generations
         .iter()
         .map(|tr| std_deviation(&tr.scores).unwrap())

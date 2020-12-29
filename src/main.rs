@@ -149,8 +149,15 @@ fn play_and_analyze_games(num_games: usize) {
 }
 
 fn train_q_agent() {
+    let filename = "train_results.json";
+
     let mut agent = q_agent::QAgent::new(None);
     let train_result = agent_trainer::train_agent_from_scratch(&mut agent);
+
+    let mut file = File::create(filename).unwrap();
+    let contents = serde_json::to_string(&train_result.outcomes).unwrap();
+    file.write_all(contents.as_bytes()).unwrap();
+
     agent_trainer::analyze_report(train_result);
 }
 
