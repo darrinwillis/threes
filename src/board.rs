@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 pub const WIDTH: usize = 4;
 const NUM_BLOCKS: usize = WIDTH * WIDTH;
 
@@ -82,7 +84,7 @@ fn shift_down(in_sec: &Section) -> (Section, bool) {
     (out_sec, block_moved)
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Board {
     blocks: BoardBlocks,
 }

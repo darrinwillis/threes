@@ -175,7 +175,7 @@ fn main() {
     };
     if let Some(g) = guard {
         if let Ok(report) = g.report().build() {
-            println!("report: {}", &report);
+            println!("report: {:?}", &report);
             let file = File::create("flamegraph.svg").unwrap();
             report.flamegraph(file).unwrap();
         };

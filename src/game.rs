@@ -1,11 +1,14 @@
 extern crate termion;
 
 use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::board;
 use super::utils;
 
 pub type Score = i32;
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GameResult {
     pub score: Score,
     pub num_moves: i32,
@@ -254,5 +257,7 @@ mod tests {
         };
         assert_ne!(result.num_moves, 0);
         assert_ne!(result.score, 0);
+        let serialized = serde_json::to_string(&result).unwrap();
+        println!("serialized result:\n{}", serialized);
     }
 }
