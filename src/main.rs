@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate enum_map;
+extern crate clap;
 extern crate histogram;
 #[macro_use]
 extern crate itertools;
@@ -15,6 +16,7 @@ mod q_agent;
 mod random_agent;
 mod utils;
 
+use clap::{App, Arg, SubCommand};
 use enum_map::EnumMap;
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -153,26 +155,34 @@ fn train_q_agent() {
 }
 
 fn main() {
-    enum Mode {
-        Interactive,
-        RunRandomGames,
-        TrainAgent,
-    };
-    let mode = Mode::TrainAgent;
-    let profile = false;
+    let matches = App::new("Threes Engine")
+        .version("0.1")
+        .author("Darrin Willis <willisdarrin@gmail.com")
+        .about("threes engine")
+        .arg(
+            Arg::with_name("profile")
+                .short("p")
+                .help("generate profiling flamegraph"),
+        )
+        .subcommand(SubCommand::with_name("interactive").about("play a game as a human"))
+        .subcommand(SubCommand::with_name("random").about("random agent to play a game"))
+        .subcommand(SubCommand::with_name("train").about("train a q agent to play"))
+        .get_matches();
+
+    let profile = matches.is_present("profile");
     let guard = if profile {
         Some(pprof::ProfilerGuard::new(100).unwrap())
     } else {
         None
     };
-    match mode {
-        Mode::Interactive => play_interactive_game(),
-        Mode::RunRandomGames => {
-            let num_games = 100_000;
-            play_and_analyze_games(num_games);
-        }
-        Mode::TrainAgent => train_q_agent(),
-    };
+    if matches.is_present("interactive") {
+        play_interactive_game()
+    } else if matches.is_present("random") {
+        let num_games = 100_000;
+        play_and_analyze_games(num_games)
+    } else if matches.is_present("train") {
+        train_q_agent()
+    }
     if let Some(g) = guard {
         if let Ok(report) = g.report().build() {
             println!("report: {:?}", &report);
