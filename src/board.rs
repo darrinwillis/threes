@@ -179,10 +179,7 @@ impl Board {
     // Push the board in a certain direction
     // Returns true if the board was modified
     pub fn shove(&mut self, d: Direction) -> bool {
-        let increasing = match d {
-            Direction::Down | Direction::Right => true,
-            _ => false,
-        };
+        let increasing = matches!(d, Direction::Down | Direction::Right);
 
         let mut modified = false;
         match d {

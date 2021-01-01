@@ -170,7 +170,7 @@ impl Game {
             .iter()
             .filter_map(|(k, v)| if v.is_some() { Some(k) } else { None })
             .collect::<Vec<board::Direction>>();
-        if next_moves.len() == 0 && self.cur_board.is_empty() {
+        if next_moves.is_empty() && self.cur_board.is_empty() {
             board::ALL_DIRECTIONS.to_vec()
         } else {
             next_moves

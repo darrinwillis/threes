@@ -5,7 +5,6 @@ use super::game;
 use super::random_agent::RandomAgent;
 use super::utils;
 
-use histogram;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -13,10 +12,6 @@ use std::collections::HashMap;
 type StandardFormBoard = board::Board;
 
 type ActionRewards = crate::EnumMap<Direction, f64>;
-//const EMPTY_ACTION_REWARDS : ActionRewards =
-const LEARNING_RATE: f64 = 0.5;
-const DISCOUNT_FACTOR: f64 = 0.9;
-const EXPLORATION_RATE: f64 = 0.1;
 
 pub struct RewardTable {
     rewards: ActionRewards,
@@ -85,7 +80,7 @@ impl QTable {
     pub fn max_q_from_directions(
         &mut self,
         board: &board::Board,
-        available_directions: &Vec<Direction>,
+        available_directions: &[Direction],
     ) -> Direction {
         let action_rewards = self.get_reward_table(board);
         available_directions
@@ -112,16 +107,21 @@ impl QTable {
 }
 
 impl QAgent {
-    pub fn new(seed: Option<&mut StdRng>) -> QAgent {
+    pub fn new(
+        seed: Option<&mut StdRng>,
+        learning_rate: f64,
+        discount_factor: f64,
+        exploration_rate: f64,
+    ) -> QAgent {
         let mut rng = utils::resolve_rng_from_seed(seed);
         let random_agent = RandomAgent::new(Some(&mut rng));
         QAgent {
             rng,
             random_agent,
             q_table: QTable::new(),
-            learning_rate: LEARNING_RATE,
-            discount_factor: DISCOUNT_FACTOR,
-            exploration_rate: EXPLORATION_RATE,
+            learning_rate,
+            discount_factor,
+            exploration_rate,
         }
     }
 }
@@ -215,8 +215,8 @@ impl Agent for QAgent {
         }
         println!("distribution of read counts:");
         println!("percentile, read count");
-        for p in vec![1.0, 10.0, 50.0, 90.0, 99.0, 99.9, 99.99] {
-            println!(" p{:5}: {}", p, histogram.percentile(p).unwrap());
+        for p in &[1.0, 10.0, 50.0, 90.0, 99.0, 99.9, 99.99] {
+            println!(" p{:5}: {}", p, histogram.percentile(*p).unwrap());
         }
         println!("------------------------\n");
 
@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_basic_qagent() {
-        let mut agent = QAgent::new(None);
+        let mut agent = QAgent::new(None, 0.5, 0.9, 0.1);
         let board0 = board::Board::new();
         let mut board1 = board0;
         board1.set_value(0, 0, 1);
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_agent_play() {
-        let mut agent = QAgent::new(None);
+        let mut agent = QAgent::new(None, 0.5, 0.9, 0.1);
         let result = agent_runner::play_game(None, &mut agent);
         // We should play out a full game and always score more than 0
         assert_ne!(result.score, 0);

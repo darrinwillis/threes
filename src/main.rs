@@ -139,8 +139,8 @@ fn play_and_analyze_games(num_games: usize) {
         best_result.score,
     );
     println!("  {:5}: {}", "min", histogram.minimum().unwrap());
-    for p in vec![1.0, 10.0, 50.0, 90.0, 99.0, 99.9] {
-        println!(" p{:5}: {}", p, histogram.percentile(p).unwrap());
+    for p in &[1.0, 10.0, 50.0, 90.0, 99.0, 99.9] {
+        println!(" p{:5}: {}", p, histogram.percentile(*p).unwrap());
     }
     println!("  {:5}: {}", "max", histogram.maximum().unwrap());
     println!(" {:5}: {}", "stddev", histogram.stddev().unwrap());
@@ -148,15 +148,22 @@ fn play_and_analyze_games(num_games: usize) {
     println!("winning board\n{}", best_board);
 }
 
-fn train_q_agent() {
-    let filename = "train_results.json";
+fn train_q_agent(
+    num_generations: i32,
+    num_episodes_per_gen: i32,
+    result_file: &str,
+    learning_rate: f64,
+    discount_factor: f64,
+    explore_rate: f64,
+) {
+    let mut agent = q_agent::QAgent::new(None, learning_rate, discount_factor, explore_rate);
+    let train_result =
+        agent_trainer::train_agent_from_scratch(&mut agent, num_generations, num_episodes_per_gen);
 
-    let mut agent = q_agent::QAgent::new(None);
-    let train_result = agent_trainer::train_agent_from_scratch(&mut agent);
-
-    let mut file = File::create(filename).unwrap();
+    let mut file = File::create(result_file).unwrap();
     let contents = serde_json::to_string(&train_result.outcomes).unwrap();
     file.write_all(contents.as_bytes()).unwrap();
+    println!("Trained agent and saved results to {}", result_file)
 }
 
 fn main() {
@@ -171,7 +178,40 @@ fn main() {
         )
         .subcommand(SubCommand::with_name("interactive").about("play a game as a human"))
         .subcommand(SubCommand::with_name("random").about("random agent to play a game"))
-        .subcommand(SubCommand::with_name("train").about("train a q agent to play"))
+        .subcommand(
+            SubCommand::with_name("train")
+                .about("train a q agent to play")
+                .arg(
+                    Arg::with_name("num_generations")
+                        .long("num_generations")
+                        .default_value("100"),
+                )
+                .arg(
+                    Arg::with_name("num_episodes_per_gen")
+                        .long("num_episodes_per_gen")
+                        .default_value("1000"),
+                )
+                .arg(
+                    Arg::with_name("result_file")
+                        .long("result_file")
+                        .default_value("train_results.json"),
+                )
+                .arg(
+                    Arg::with_name("learning_rate")
+                        .long("learning_rate")
+                        .default_value("0.5"),
+                )
+                .arg(
+                    Arg::with_name("discount_factor")
+                        .long("discount_factor")
+                        .default_value("0.9"),
+                )
+                .arg(
+                    Arg::with_name("explore_rate")
+                        .long("explore_rate")
+                        .default_value("0.1"),
+                ),
+        )
         .get_matches();
 
     let profile = matches.is_present("profile");
@@ -186,7 +226,41 @@ fn main() {
         let num_games = 100_000;
         play_and_analyze_games(num_games)
     } else if matches.is_present("train") {
-        train_q_agent()
+        let train_matches = matches.subcommand_matches("train").unwrap();
+        let num_generations = train_matches
+            .value_of("num_generations")
+            .unwrap()
+            .parse::<i32>()
+            .unwrap();
+        let num_episodes_per_gen = train_matches
+            .value_of("num_episodes_per_gen")
+            .unwrap()
+            .parse::<i32>()
+            .unwrap();
+        let result_file = train_matches.value_of("result_file").unwrap();
+        let learning_rate = train_matches
+            .value_of("learning_rate")
+            .unwrap()
+            .parse::<f64>()
+            .unwrap();
+        let discount_factor = train_matches
+            .value_of("discount_factor")
+            .unwrap()
+            .parse::<f64>()
+            .unwrap();
+        let explore_rate = train_matches
+            .value_of("explore_rate")
+            .unwrap()
+            .parse::<f64>()
+            .unwrap();
+        train_q_agent(
+            num_generations,
+            num_episodes_per_gen,
+            result_file,
+            learning_rate,
+            discount_factor,
+            explore_rate,
+        )
     }
     if let Some(g) = guard {
         if let Ok(report) = g.report().build() {

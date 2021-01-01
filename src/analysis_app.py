@@ -36,21 +36,34 @@ class TrainingOutcomes:
         return pd.DataFrame.from_records(self.d()["games_played"])
 
 
-def run_training(retrain=False):
-    kResultPath = "train_results.json"
+def run_training(retrain=False, learning_rate=None, discount_factor=None, explore_rate=None, result_file="train_results.json", num_generations=None):
 
-    retrain = retrain or not os.path.exists(kResultPath)
+    retrain = retrain or not os.path.exists(result_file)
 
     if retrain:
         start = time.time()
-        result = subprocess.run(["cargo", "run", "--release", "--", "train"])
+        cmdline = ["cargo", "run", "--release", "--", "train", "--result_file", result_file]
+
+        if num_generations is not None:
+            cmdline.extend(["--num_generations", str(num_generations)])
+
+        if learning_rate is not None:
+            cmdline.extend(["--learning_rate", str(learning_rate)])
+
+        if discount_factor is not None:
+            cmdline.extend(["--discount_factor", str(discount_factor)])
+
+        if explore_rate is not None:
+            cmdline.extend(["--explore_rate", str(explore_rate)])
+
+        result = subprocess.run(cmdline)
         result.check_returncode()
         train_time = time.time() - start
         st.write(f"Trained new agent in {train_time:0.2f}s")
     else:
         st.write("Loading pretrained agent")
 
-    with open(kResultPath) as f:
+    with open(result_file) as f:
         result_dict = json.load(f)
 
     outcomes = TrainingOutcomes(result_dict)
