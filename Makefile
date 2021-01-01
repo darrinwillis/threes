@@ -16,5 +16,9 @@ train_d:
 test:
 	cargo test
 
+play:
+	cargo run --release -- interactive
+
 help:
 	cat Makefile
+	cargo run -- --help
