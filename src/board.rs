@@ -19,7 +19,6 @@ pub const ALL_DIRECTIONS: [Direction; 4] = [
     Direction::Right,
 ];
 
-pub type StandardFormBoard = Board;
 pub type Rank = i32;
 type BoardBlocks = [Rank; NUM_BLOCKS];
 type Section = [Rank; WIDTH];
@@ -96,6 +95,7 @@ impl Board {
         }
     }
 
+    #[cfg(test)]
     pub fn from_rows(rows: &BoardSections) -> Board {
         let mut board = Board::new();
         for i in 0..WIDTH {
@@ -172,10 +172,6 @@ impl Board {
         self.blocks
     }
 
-    pub fn get_value(&self, row: usize, col: usize) -> Rank {
-        self.blocks[row * WIDTH + col]
-    }
-
     pub fn set_value(&mut self, row: usize, col: usize, value: Rank) {
         self.blocks[row * WIDTH + col] = value;
     }
@@ -212,61 +208,6 @@ impl Board {
             }
         };
         modified
-    }
-
-    // Flip along the horizontal access, so each row keeps the same set of values
-    pub fn h_flip(&mut self) {
-        for i in 0..WIDTH / 2 {
-            let j = WIDTH - i - 1;
-            let tmp = self.get_col(i);
-            self.set_col(i, &self.get_col(j));
-            self.set_col(j, &tmp);
-        }
-    }
-
-    // Flip along the vertical access, so each row keeps the same set of values
-    pub fn v_flip(&mut self) {
-        for i in 0..WIDTH / 2 {
-            let j = WIDTH - i - 1;
-            let tmp = self.get_row(i);
-            self.set_row(i, &self.get_row(j));
-            self.set_row(j, &tmp);
-        }
-    }
-
-    // Fetch the quadrant. Quadrants are counter-clockwise starting from up-right.
-    // 1 | 0
-    // ------
-    // 2 | 3
-    //
-    // Return value is in the same order as a board, row-major from top left
-    pub fn quadrant(&self, q: usize) -> Section {
-        // Let's first pinpoint the top left (lowest index) value
-        let r_0 = if q == 0 || q == 1 { 0 } else { WIDTH / 2 };
-        let c_0 = if q == 1 || q == 2 { 0 } else { WIDTH / 2 };
-        let mut s = ZERO_SECTION;
-        let mut i = 0;
-        for r in r_0..r_0 + WIDTH / 2 {
-            for c in c_0..c_0 + WIDTH / 2 {
-                s[i] = self.get_value(r, c);
-                i = i + 1;
-            }
-        }
-        s
-    }
-
-    pub fn get_standard_form(&self) -> StandardFormBoard {
-        /* All of these forms are identical:
-         * AB DA CD BC - Rotations
-         * DC CB BA AD
-         *
-         * AD BA CB DC - Rotations after a parity flip
-         * BC CD DA AB
-         */
-        let s_board = *self;
-        // TODO(dwillis) need to find minimal implementation to determine which transforms are
-        // needed.
-        s_board
     }
 }
 
@@ -313,70 +254,5 @@ mod tests {
             board,
             Board::from_rows(&[[1, 2, 8, 4], ZERO_SECTION, ZERO_SECTION, ZERO_SECTION])
         );
-    }
-
-    #[test]
-    fn test_flips() {
-        let b = Board::from_rows(&[
-            [1, 2, 3, 6],
-            [3, 6, 12, 24],
-            [6, 12, 24, 48],
-            [12, 24, 48, 96],
-        ]);
-        let mut h = b;
-        h.h_flip();
-        assert_eq!(
-            h,
-            Board::from_rows(&[
-                [6, 3, 2, 1],
-                [24, 12, 6, 3],
-                [48, 24, 12, 6],
-                [96, 48, 24, 12],
-            ])
-        );
-        h.h_flip();
-        assert_eq!(b, h);
-        let mut v = b;
-        v.v_flip();
-        assert_eq!(
-            v,
-            Board::from_rows(&[
-                [12, 24, 48, 96],
-                [6, 12, 24, 48],
-                [3, 6, 12, 24],
-                [1, 2, 3, 6],
-            ])
-        );
-        v.v_flip();
-        assert_eq!(b, v);
-    }
-
-    #[test]
-    fn test_quadrants() {
-        let b = Board::from_rows(&[
-            [1, 2, 3, 6],
-            [3, 6, 12, 24],
-            [6, 12, 24, 48],
-            [12, 24, 48, 96],
-        ]);
-
-        assert_eq!(b.quadrant(0), [3, 6, 12, 24]);
-        assert_eq!(b.quadrant(1), [1, 2, 3, 6]);
-        assert_eq!(b.quadrant(2), [6, 12, 12, 24]);
-        assert_eq!(b.quadrant(3), [24, 48, 48, 96]);
-    }
-
-    #[test]
-    #[ignore] // Not implemented
-    fn test_standard_form() {
-        let mut b = Board::from_rows(&[[1, 2, 0, 0], [3, 6, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
-        assert_eq!(b, b.get_standard_form());
-        let s = b;
-        b.h_flip();
-        assert_eq!(s, b.get_standard_form());
-        b.v_flip();
-        assert_eq!(s, b.get_standard_form());
-        b.h_flip();
-        assert_eq!(s, b.get_standard_form());
     }
 }
