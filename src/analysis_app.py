@@ -65,12 +65,20 @@ def draw_top_summary(outcomes):
     fig = px.scatter(df, title="Scores across training", y="score", color="gen_id")
     st.write(fig)
 
+
+    window_size = 500
+
+    rolling_avg = df.rolling(window_size).mean()
+
+    fig = px.line(rolling_avg, title="Scores across training (windowed)", y="score")
+    st.write(fig)
+
     quantiles = [.1, .5, .9, 1]
     # Calculate the quantiles as grouped by generation
     quantiles_by_gen = df.groupby(["gen_id"]).quantile(quantiles)
 
     # Rename the quantile columns
-    quantiles_by_gen = quantiles_by_gen.unstack().score.rename(columns = lambda c: f"p{float(c)} score")
+    quantiles_by_gen = quantiles_by_gen.unstack().score.rename(columns = lambda c: f"p{int(100*float(c))} score")
 
     fig = px.line(quantiles_by_gen, title="Quantiles by training generation")
     st.write(fig)
