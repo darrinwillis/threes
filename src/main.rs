@@ -157,8 +157,6 @@ fn train_q_agent() {
     let mut file = File::create(filename).unwrap();
     let contents = serde_json::to_string(&train_result.outcomes).unwrap();
     file.write_all(contents.as_bytes()).unwrap();
-
-    agent_trainer::analyze_report(train_result);
 }
 
 fn main() {

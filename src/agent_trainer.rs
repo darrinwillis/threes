@@ -6,13 +6,14 @@ use super::utils;
 use std::iter;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct GenerationResult {
-    pub scores: Vec<i32>,
+pub struct PlayedGame {
+    pub gen_id: i32,
+    pub score: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TrainingOutcomes {
-    pub generations: Vec<GenerationResult>,
+    pub games_played: Vec<PlayedGame>,
 }
 
 pub struct TrainResult<'a, A: Agent> {
@@ -25,18 +26,16 @@ pub fn train_agent_from_scratch<A: Agent>(agent: &mut A) -> TrainResult<A> {
     let num_episodes_per_gen = 1000;
     let rng = utils::resolve_rng_from_seed(None);
 
-    let mut generations = Vec::new();
-    for _gen in 0..num_generations {
-        let mut scores = Vec::new();
+    let mut games_played = Vec::new();
+    for gen_id in 0..num_generations {
         for _episode in 0..num_episodes_per_gen {
             // Note that we're running with the SAME game every time here
             let result = agent_runner::play_game(Some(&mut rng.clone()), agent);
             let score = result.score;
-            scores.push(score);
+            games_played.push(PlayedGame { gen_id, score });
         }
-        generations.push(GenerationResult { scores });
     }
-    let outcomes = TrainingOutcomes { generations };
+    let outcomes = TrainingOutcomes { games_played };
     TrainResult { outcomes, agent }
 }
 
@@ -79,16 +78,17 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
     }
 }
 
+/*
 pub fn analyze_report<A: Agent>(train_result: TrainResult<A>) {
     let mean_per_gen = train_result
         .outcomes
-        .generations
+        .games_played
         .iter()
         .map(|tr| mean(&tr.scores).unwrap())
         .collect::<Vec<f32>>();
     let std_dev_per_gen = train_result
         .outcomes
-        .generations
+        .games_played
         .iter()
         .map(|tr| std_deviation(&tr.scores).unwrap())
         .collect::<Vec<f32>>();
@@ -126,3 +126,4 @@ pub fn analyze_report<A: Agent>(train_result: TrainResult<A>) {
     train_result.agent.print();
     let mut _histogram = histogram::Histogram::new();
 }
+*/
