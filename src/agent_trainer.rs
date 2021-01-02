@@ -25,18 +25,20 @@ pub fn train_agent_from_scratch<A: Agent>(
     num_generations: i32,
     num_episodes_per_gen: i32,
 ) -> TrainResult<A> {
-    let rng = utils::resolve_rng_from_seed(None);
+    let mut rng = utils::resolve_rng_from_seed(None);
 
     let mut games_played = Vec::new();
     for gen_id in 0..num_generations {
         // Train
         for _episode in 0..num_episodes_per_gen {
             // Note that we're running with the SAME game every time here
-            let _result = agent_runner::play_game(Some(&mut rng.clone()), agent, true);
+            let mut new_rng = utils::resolve_rng_from_seed(Some(&mut rng));
+            let _result = agent_runner::play_game(Some(&mut new_rng), agent, true);
         }
 
         // Test
-        let result = agent_runner::play_game(Some(&mut rng.clone()), agent, false);
+        let mut new_rng = utils::resolve_rng_from_seed(Some(&mut rng));
+        let result = agent_runner::play_game(Some(&mut new_rng), agent, false);
         let score = result.score;
         games_played.push(PlayedGame { gen_id, score });
     }

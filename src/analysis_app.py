@@ -2,12 +2,17 @@ import os
 import subprocess
 import time
 import json
+import hashlib
 
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 
+NUM_GEN=1000
+
+
+DEBUG=False
 
 class TrainingOutcomes:
     def __init__(self, outcomes_dict):
@@ -36,42 +41,52 @@ class TrainingOutcomes:
         return pd.DataFrame.from_records(self.d()["games_played"])
 
 
-def run_training(retrain=False, learning_rate=None, discount_factor=None, explore_rate=None, result_file="train_results.json", num_generations=None, num_episodes_per_gen=100):
+def run_training(retrain=False, learning_rate=None, discount_factor=None, explore_rate=None, num_generations=NUM_GEN, num_episodes_per_gen=100):
+
+    cmdline = ["cargo", "run", "--release", "--", "train", ]
+
+    if num_generations is not None:
+        cmdline.extend(["--num_generations", str(num_generations)])
+
+    if learning_rate is not None:
+        cmdline.extend(["--learning_rate", str(learning_rate)])
+
+    if discount_factor is not None:
+        cmdline.extend(["--discount_factor", str(discount_factor)])
+
+    if explore_rate is not None:
+        cmdline.extend(["--explore_rate", str(explore_rate)])
+
+    if num_episodes_per_gen is not None:
+        cmdline.extend(["--num_episodes_per_gen", str(num_episodes_per_gen)])
+
+    cmd_hash = hashlib.md5(" ".join(cmdline).encode("utf-8")).hexdigest()
+
+    result_file = f"train_file_{cmd_hash}.json"
 
     retrain = retrain or not os.path.exists(result_file)
 
     if retrain:
         start = time.time()
-        cmdline = ["cargo", "run", "--release", "--", "train", "--result_file", result_file]
 
-        if num_generations is not None:
-            cmdline.extend(["--num_generations", str(num_generations)])
-
-        if learning_rate is not None:
-            cmdline.extend(["--learning_rate", str(learning_rate)])
-
-        if discount_factor is not None:
-            cmdline.extend(["--discount_factor", str(discount_factor)])
-
-        if explore_rate is not None:
-            cmdline.extend(["--explore_rate", str(explore_rate)])
-
-        if num_episodes_per_gen is not None:
-            cmdline.extend(["--num_episodes_per_gen", str(num_episodes_per_gen)])
-
+        cmdline.extend(["--result_file", result_file])
         result = subprocess.run(cmdline)
         result.check_returncode()
+
         train_time = time.time() - start
-        st.write(f"Trained new agent in {train_time:0.2f}s")
+        if DEBUG:
+            st.write(f"Trained new agent in {train_time:0.2f}s")
     else:
-        st.write("Loading pretrained agent")
+        if DEBUG:
+            st.write("Loading pretrained agent")
 
     with open(result_file) as f:
         result_dict = json.load(f)
 
     outcomes = TrainingOutcomes(result_dict)
 
-    st.write(f"Loaded agent with {outcomes.num_generations()} generations; {outcomes.num_games()} games")
+    if DEBUG:
+        st.write(f"Loaded agent with {outcomes.num_generations()} generations; {outcomes.num_games()} games")
 
     return outcomes
 
@@ -82,7 +97,7 @@ def draw_top_summary(outcomes):
     st.write(fig)
 
 
-    window_size = 500
+    window_size = 5
 
     rolling_avg = df.rolling(window_size).mean()
 
@@ -104,8 +119,7 @@ def test_explore():
 
     dfs = []
     for exp in explore_values:
-        fn = f"train_exp_{exp:0.2f}.json"
-        results = run_training(explore_rate=exp, result_file=fn, num_generations=50)
+        results = run_training(explore_rate=exp)
 
         df = results.as_dataframe()
 
@@ -122,12 +136,12 @@ def test_explore():
     st.write(fig)
 
 def test_discount():
-    discount_values = [.1, .5, .9, .99]
+    discount_values = [.7, .9, .99, .999]
 
     dfs = []
     for disc in discount_values:
         fn = f"train_disc_{disc:0.2f}.json"
-        results = run_training(discount_factor=disc, result_file=fn, num_generations=50)
+        results = run_training(discount_factor=disc)
 
         df = results.as_dataframe()
 
@@ -140,14 +154,10 @@ def test_discount():
     st.write("total df:")
     st.write(total_df)
 
-    window_size = 1000
+    window_size = 5
     rolling_avg = total_df.drop("gen_id", axis=1).groupby(["discount_factor"]).rolling(window_size).quantile(.9)
-    st.write("rolling avg:")
-    st.write(rolling_avg)
 
     rolling_avg = rolling_avg.drop("discount_factor", axis=1).reset_index(col_fill="age")
-    st.write("reset index:")
-    st.write(rolling_avg)
 
     fig = px.line(rolling_avg, title=f"Scores across training (window_size={window_size})", x="level_1", y="score", color="discount_factor")
     st.write(fig)
@@ -155,8 +165,8 @@ def test_discount():
     fig = px.scatter(total_df, title="Scores across training", y="score", color="discount_factor")
     st.write(fig)
 
-#outcomes= run_training()
-#draw_top_summary(outcomes)
+outcomes= run_training()
+draw_top_summary(outcomes)
 
 test_explore()
 
