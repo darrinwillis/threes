@@ -36,7 +36,7 @@ class TrainingOutcomes:
         return pd.DataFrame.from_records(self.d()["games_played"])
 
 
-def run_training(retrain=False, learning_rate=None, discount_factor=None, explore_rate=None, result_file="train_results.json", num_generations=None):
+def run_training(retrain=False, learning_rate=None, discount_factor=None, explore_rate=None, result_file="train_results.json", num_generations=None, num_episodes_per_gen=100):
 
     retrain = retrain or not os.path.exists(result_file)
 
@@ -55,6 +55,9 @@ def run_training(retrain=False, learning_rate=None, discount_factor=None, explor
 
         if explore_rate is not None:
             cmdline.extend(["--explore_rate", str(explore_rate)])
+
+        if num_episodes_per_gen is not None:
+            cmdline.extend(["--num_episodes_per_gen", str(num_episodes_per_gen)])
 
         result = subprocess.run(cmdline)
         result.check_returncode()
@@ -96,6 +99,65 @@ def draw_top_summary(outcomes):
     fig = px.line(quantiles_by_gen, title="Quantiles by training generation")
     st.write(fig)
 
+def test_explore():
+    explore_values = [.0001, .001, .01, .1, .5]
 
-outcomes= run_training()
-draw_top_summary(outcomes)
+    dfs = []
+    for exp in explore_values:
+        fn = f"train_exp_{exp:0.2f}.json"
+        results = run_training(explore_rate=exp, result_file=fn, num_generations=50)
+
+        df = results.as_dataframe()
+
+        df["explore_rate"] = str(exp)
+
+        dfs.append(df)
+
+    total_df = pd.concat(dfs)
+
+    st.write("total df:")
+    st.write(total_df)
+
+    fig = px.scatter(total_df, title="Scores across training", y="score", color="explore_rate")
+    st.write(fig)
+
+def test_discount():
+    discount_values = [.1, .5, .9, .99]
+
+    dfs = []
+    for disc in discount_values:
+        fn = f"train_disc_{disc:0.2f}.json"
+        results = run_training(discount_factor=disc, result_file=fn, num_generations=50)
+
+        df = results.as_dataframe()
+
+        df["discount_factor"] = str(disc)
+
+        dfs.append(df)
+
+    total_df = pd.concat(dfs)
+
+    st.write("total df:")
+    st.write(total_df)
+
+    window_size = 1000
+    rolling_avg = total_df.drop("gen_id", axis=1).groupby(["discount_factor"]).rolling(window_size).quantile(.9)
+    st.write("rolling avg:")
+    st.write(rolling_avg)
+
+    rolling_avg = rolling_avg.drop("discount_factor", axis=1).reset_index(col_fill="age")
+    st.write("reset index:")
+    st.write(rolling_avg)
+
+    fig = px.line(rolling_avg, title=f"Scores across training (window_size={window_size})", x="level_1", y="score", color="discount_factor")
+    st.write(fig)
+
+    fig = px.scatter(total_df, title="Scores across training", y="score", color="discount_factor")
+    st.write(fig)
+
+#outcomes= run_training()
+#draw_top_summary(outcomes)
+
+test_explore()
+
+test_discount()

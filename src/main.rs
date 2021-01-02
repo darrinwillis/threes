@@ -111,7 +111,7 @@ fn play_games(num_games: usize, seed: Option<&mut StdRng>) -> Vec<(StdRng, game:
             // This must be first; we want to stash the original rng away for later
             let mut game_rng = seed_rng.clone();
             let agent = &mut random_agent::RandomAgent::new(Some(&mut game_rng));
-            let result = agent_runner::play_game(Some(&mut game_rng), agent);
+            let result = agent_runner::play_game(Some(&mut game_rng), agent, false);
             (seed_rng, result)
         })
         .collect()

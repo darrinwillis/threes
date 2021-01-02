@@ -5,7 +5,7 @@ use super::game;
 use super::utils;
 
 pub trait Agent {
-    fn take_action(&mut self, game: &game::Game) -> board::Direction;
+    fn take_action(&mut self, game: &game::Game, train_mode: bool) -> board::Direction;
     fn update(
         &mut self,
         board: &board::Board,
@@ -16,23 +16,29 @@ pub trait Agent {
     fn print(&self);
 }
 
-pub fn play_game<A: Agent>(seed: Option<&mut StdRng>, agent: &mut A) -> game::GameResult {
+pub fn play_game<A: Agent>(
+    seed: Option<&mut StdRng>,
+    agent: &mut A,
+    train_mode: bool,
+) -> game::GameResult {
     let mut rng = utils::resolve_rng_from_seed(seed);
     let mut game = game::Game::new(Some(&mut rng));
 
-    let first_direction = agent.take_action(&game);
+    let first_direction = agent.take_action(&game, train_mode);
     game.update(first_direction);
 
     loop {
         let options = game.available_moves();
         assert!(!options.is_empty());
-        let direction = agent.take_action(&game);
+        let direction = agent.take_action(&game, train_mode);
         let prev_board = game.cur_board;
         let prev_score = game.score();
         let move_result = game.update(direction);
         let new_score = game.score();
         let reward = new_score - prev_score;
-        agent.update(&prev_board, direction, &game.cur_board, reward as f64);
+        if train_mode {
+            agent.update(&prev_board, direction, &game.cur_board, reward as f64);
+        }
         // We already checked the available moves, this should work
         match move_result {
             game::MoveResult::Moved(Some(result)) => {

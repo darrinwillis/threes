@@ -127,10 +127,10 @@ impl QAgent {
 }
 
 impl Agent for QAgent {
-    fn take_action(&mut self, game: &game::Game) -> Direction {
-        if self.rng.gen_bool(self.exploration_rate) {
+    fn take_action(&mut self, game: &game::Game, train_mode: bool) -> Direction {
+        if train_mode && self.rng.gen_bool(self.exploration_rate) {
             // let's explore
-            self.random_agent.take_action(game)
+            self.random_agent.take_action(game, train_mode)
         } else {
             // take the best option
             self.q_table
@@ -278,7 +278,7 @@ mod tests {
     #[test]
     fn test_agent_play() {
         let mut agent = QAgent::new(None, 0.5, 0.9, 0.1);
-        let result = agent_runner::play_game(None, &mut agent);
+        let result = agent_runner::play_game(None, &mut agent, true);
         // We should play out a full game and always score more than 0
         assert_ne!(result.score, 0);
     }

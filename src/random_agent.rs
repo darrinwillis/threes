@@ -18,7 +18,7 @@ impl RandomAgent {
 }
 
 impl Agent for RandomAgent {
-    fn take_action(&mut self, game: &game::Game) -> board::Direction {
+    fn take_action(&mut self, game: &game::Game, _train_mode: bool) -> board::Direction {
         let options = game.available_moves();
         assert!(!options.is_empty());
         let num_options = options.len();
