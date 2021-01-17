@@ -1,12 +1,14 @@
 extern crate termion;
 
+use std::convert::TryInto;
+
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::board;
 use super::utils;
 
-pub type Score = i32;
+pub type Score = i64;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GameResult {
@@ -70,6 +72,15 @@ impl Game {
         }
     }
 
+    pub fn score(board: &board::Board) -> Score {
+        fn score_tile(rank: board::Rank) -> i64 {
+            let base: f64 = 3.0;
+            let raw: f64 = rank.try_into().unwrap();
+            return base.powf(((raw / 3.0).log2() + 1.0).try_into().unwrap()) as i64;
+        }
+        board.values().iter().map(|v| score_tile(*v)).sum()
+    }
+
     fn rand_rank(rng: &mut StdRng) -> board::Rank {
         rng.gen_range(1, 2 + 1)
     }
@@ -110,8 +121,8 @@ impl Game {
         rows.join("\r\n")
     }
 
-    pub fn score(&self) -> Score {
-        self.cur_board.values().iter().map(|v| v * v).sum()
+    pub fn cur_score(&self) -> Score {
+        return Game::score(&self.cur_board);
     }
 
     fn check_game_over(&self) -> Option<GameResult> {
@@ -123,7 +134,7 @@ impl Game {
         }
 
         Some(GameResult {
-            score: self.score(),
+            score: self.cur_score(),
             num_moves: self.num_moves,
             final_board: self.cur_board,
             final_render: self.render(),
@@ -245,19 +256,36 @@ mod tests {
 
             let first_move = moves[0];
 
-            let prev_score = game.score();
+            let prev_score = game.cur_score();
 
             let move_result = game.update(first_move);
             if let MoveResult::Failed = move_result {
                 // We shouldn't be able to take a failed move
                 assert!(false);
             }
-            assert!(game.score() >= prev_score);
+            assert!(game.cur_score() >= prev_score);
             i += 1;
         };
         assert_ne!(result.num_moves, 0);
         assert_ne!(result.score, 0);
         let serialized = serde_json::to_string(&result).unwrap();
         println!("serialized result:\n{}", serialized);
+    }
+
+    #[test]
+    fn test_score() {
+        let b_3 =
+            board::Board::from_rows(&[[3, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
+        let b_6 =
+            board::Board::from_rows(&[[6, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
+        let b_12 =
+            board::Board::from_rows(&[[12, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
+
+        let b_33 =
+            board::Board::from_rows(&[[3, 3, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
+        assert_eq!(Game::score(&b_3), 3);
+        assert_eq!(Game::score(&b_6), 9);
+        assert_eq!(Game::score(&b_12), 27);
+        assert_eq!(Game::score(&b_33), 6);
     }
 }

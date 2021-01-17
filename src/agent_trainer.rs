@@ -2,12 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use super::agent_runner;
 use super::agent_runner::Agent;
+use super::game::Score;
 use super::utils;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PlayedGame {
     pub gen_id: i32,
-    pub score: i32,
+    pub score: Score,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

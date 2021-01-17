@@ -32,9 +32,9 @@ pub fn play_game<A: Agent>(
         assert!(!options.is_empty());
         let direction = agent.take_action(&game, train_mode);
         let prev_board = game.cur_board;
-        let prev_score = game.score();
+        let prev_score = game.cur_score();
         let move_result = game.update(direction);
-        let new_score = game.score();
+        let new_score = game.cur_score();
         let reward = new_score - prev_score;
         if train_mode {
             agent.update(&prev_board, direction, &game.cur_board, reward as f64);
