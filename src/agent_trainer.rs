@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::agent_runner;
 use super::agent_runner::Agent;
+use super::game::GameLog;
 use super::game::Score;
 use super::utils;
 
@@ -9,6 +10,7 @@ use super::utils;
 pub struct PlayedGame {
     pub gen_id: i32,
     pub score: Score,
+    pub game_log: Option<GameLog>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -41,7 +43,12 @@ pub fn train_agent_from_scratch<A: Agent>(
         let mut new_rng = utils::resolve_rng_from_seed(Some(&mut rng));
         let result = agent_runner::play_game(Some(&mut new_rng), agent, false);
         let score = result.score;
-        games_played.push(PlayedGame { gen_id, score });
+        let game_log = result.log;
+        games_played.push(PlayedGame {
+            gen_id,
+            score,
+            game_log,
+        });
     }
     let outcomes = TrainingOutcomes { games_played };
     TrainResult { outcomes, agent }

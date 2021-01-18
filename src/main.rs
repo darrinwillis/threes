@@ -28,7 +28,8 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 fn play_interactive_game() {
-    let mut game = game::Game::new(None);
+    let do_logging = true;
+    let mut game = game::Game::new(None, do_logging);
     let mut stdout = stdout().into_raw_mode().unwrap();
     let stdin = stdin();
     let stdin = stdin.lock();

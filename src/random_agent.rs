@@ -22,7 +22,7 @@ impl Agent for RandomAgent {
         let options = game.available_moves();
         assert!(!options.is_empty());
         let num_options = options.len();
-        let op_idx = self.rng.gen_range(0, num_options);
+        let op_idx = self.rng.gen_range(0..num_options);
         options[op_idx]
     }
 

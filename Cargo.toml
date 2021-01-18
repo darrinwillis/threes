@@ -8,7 +8,8 @@ edition = "2018"
 
 [dependencies]
 clap = "2.33.3"
-rand = "0.7.2"
+rand = "0.8.2"
+rand_xoshiro = { version="0.6.0" }
 rustyline = "5.0.6"
 termion = "1.5.4"
 enum-map = "0.6.2"

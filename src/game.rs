@@ -2,13 +2,17 @@ extern crate termion;
 
 use std::convert::TryInto;
 
-use rand::prelude::*;
+//use rand::prelude::*;
+use crate::rand::Rng;
+use rand_xoshiro::rand_core::SeedableRng;
+use rand_xoshiro::Xoroshiro128StarStar;
 use serde::{Deserialize, Serialize};
 
 use super::board;
-use super::utils;
 
 pub type Score = i64;
+
+pub type RngType = Xoroshiro128StarStar;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GameResult {
@@ -16,6 +20,14 @@ pub struct GameResult {
     pub num_moves: i32,
     pub final_board: board::Board,
     pub final_render: String,
+    // Only present if game was played with logging on
+    pub log: Option<GameLog>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GameLog {
+    pub seed: u64,
+    pub moves: Vec<board::Direction>,
 }
 
 pub enum MoveResult {
@@ -24,14 +36,25 @@ pub enum MoveResult {
 }
 
 pub struct Game {
+    //
+    // Game state
+    //
     pub cur_board: board::Board,
-    shifted_boards: crate::EnumMap<board::Direction, Option<board::Board>>,
-    num_moves: i32,
-    rng: rand::rngs::StdRng,
     next_rank: board::Rank,
-    parity: i32, // count of 2s - count of 1s
+    // (count of 2s - count of 1s) used to bias the RNG towards balanced 1s and 2s
+    parity: i32,
+    // The next state if the player chooses that direction
+    shifted_boards: crate::EnumMap<board::Direction, Option<board::Board>>,
     // whether the board is empty; could be moved down into Board, but it's more efficient here.
     empty: bool,
+    //
+    // Game history
+    //
+    num_moves: i32,
+    moves: Option<Vec<board::Direction>>,
+    // Unique identifier for this game. Games are reproducible.
+    pub seed: u64,
+    rng: Xoroshiro128StarStar,
 }
 
 fn color_rank(rank: board::Rank) -> String {
@@ -57,15 +80,18 @@ fn color_rank(rank: board::Rank) -> String {
 }
 
 impl Game {
-    pub fn new(seed: Option<&mut StdRng>) -> Game {
-        let mut rng = utils::resolve_rng_from_seed(seed);
+    pub fn new(seed: Option<u64>, do_logging: bool) -> Game {
+        let seed = seed.unwrap_or(0);
+        let mut rng = RngType::seed_from_u64(seed);
         let first_rank = Game::rand_rank(&mut rng);
         let new_board = board::Board::new();
         Game {
+            seed,
             cur_board: new_board,
             shifted_boards: Self::take_all_moves(&new_board),
             empty: true,
             num_moves: 0,
+            moves: if do_logging { Some(Vec::new()) } else { None },
             rng,
             parity: 0,
             next_rank: first_rank,
@@ -81,8 +107,8 @@ impl Game {
         board.values().iter().map(|v| score_tile(*v)).sum()
     }
 
-    fn rand_rank(rng: &mut StdRng) -> board::Rank {
-        rng.gen_range(1, 2 + 1)
+    fn rand_rank(rng: &mut RngType) -> board::Rank {
+        rng.gen_range(1..=2)
     }
 
     // Returns the indexes of all the sections which are available
@@ -138,6 +164,10 @@ impl Game {
             num_moves: self.num_moves,
             final_board: self.cur_board,
             final_render: self.render(),
+            log: self.moves.as_ref().map(|moves| GameLog {
+                seed: self.seed,
+                moves: moves.to_vec(),
+            }),
         })
     }
 
@@ -146,7 +176,7 @@ impl Game {
         let range = 100;
         let multiplier = 3;
         let threshold = 50 + multiplier * self.parity;
-        self.next_rank = if self.rng.gen_range(0, range) > threshold {
+        self.next_rank = if self.rng.gen_range(0..range) > threshold {
             2
         } else {
             1
@@ -206,7 +236,7 @@ impl Game {
                     if elligible_cols.is_empty() {
                         panic!("shifted board does not have open row")
                     }
-                    let selected_idx = self.rng.gen_range(0, elligible_cols.len());
+                    let selected_idx = self.rng.gen_range(0..elligible_cols.len());
                     let selected_col = elligible_cols[selected_idx];
                     (open_row, selected_col)
                 }
@@ -220,7 +250,7 @@ impl Game {
                     if elligible_rows.is_empty() {
                         panic!("shifted board does not have open col")
                     }
-                    let selected_idx = self.rng.gen_range(0, elligible_rows.len());
+                    let selected_idx = self.rng.gen_range(0..elligible_rows.len());
                     let selected_row = elligible_rows[selected_idx];
                     (selected_row, open_col)
                 }
@@ -228,6 +258,7 @@ impl Game {
             let new_val = self.take_next_rank();
             self.cur_board.set_value(new_row, new_col, new_val);
             self.num_moves += 1;
+            self.moves.as_mut().map(|moves| moves.push(d));
             self.empty = false;
             self.shifted_boards = Self::take_all_moves(&self.cur_board);
             MoveResult::Moved(self.check_game_over())
@@ -241,35 +272,47 @@ mod tests {
 
     #[test]
     fn test_full_play() {
-        let mut game = Game::new(None);
+        for do_logging in vec![false, true] {
+            let mut game = Game::new(None, do_logging);
 
-        let mut i = 0;
-        let result = loop {
-            println!("Board #{}:\n{}", i, game.render());
-            if let Some(game_result) = game.check_game_over() {
-                break game_result;
+            let mut i = 0;
+            let mut moves_taken = vec![];
+            let result = loop {
+                println!("Board #{}:\n{}", i, game.render());
+                if let Some(game_result) = game.check_game_over() {
+                    break game_result;
+                }
+
+                let moves = game.available_moves();
+                // We just checked for game over
+                assert_ne!(moves.len(), 0);
+
+                let first_move = moves[0];
+                moves_taken.push(first_move);
+
+                let prev_score = game.cur_score();
+
+                let move_result = game.update(first_move);
+                if let MoveResult::Failed = move_result {
+                    // We shouldn't be able to take a failed move
+                    assert!(false);
+                }
+                assert!(game.cur_score() >= prev_score);
+                i += 1;
+            };
+            assert_ne!(result.num_moves, 0);
+            assert_ne!(result.score, 0);
+            let serialized = serde_json::to_string(&result).unwrap();
+            println!("serialized result:\n{}", serialized);
+
+            // Log tests
+            assert_eq!(result.log.is_some(), do_logging);
+            if do_logging {
+                let log = result.log.unwrap();
+                assert_eq!(log.moves.len() as i32, result.num_moves);
+                assert_eq!(log.moves, moves_taken);
             }
-
-            let moves = game.available_moves();
-            // We just checked for game over
-            assert_ne!(moves.len(), 0);
-
-            let first_move = moves[0];
-
-            let prev_score = game.cur_score();
-
-            let move_result = game.update(first_move);
-            if let MoveResult::Failed = move_result {
-                // We shouldn't be able to take a failed move
-                assert!(false);
-            }
-            assert!(game.cur_score() >= prev_score);
-            i += 1;
-        };
-        assert_ne!(result.num_moves, 0);
-        assert_ne!(result.score, 0);
-        let serialized = serde_json::to_string(&result).unwrap();
-        println!("serialized result:\n{}", serialized);
+        }
     }
 
     #[test]

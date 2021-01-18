@@ -22,7 +22,9 @@ pub fn play_game<A: Agent>(
     train_mode: bool,
 ) -> game::GameResult {
     let mut rng = utils::resolve_rng_from_seed(seed);
-    let mut game = game::Game::new(Some(&mut rng));
+    // Only log if we're testing
+    let do_logging = !train_mode;
+    let mut game = game::Game::new(Some(rng.next_u64()), do_logging);
 
     let first_direction = agent.take_action(&game, train_mode);
     game.update(first_direction);

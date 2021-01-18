@@ -4,7 +4,7 @@ pub const WIDTH: usize = 4;
 const NUM_BLOCKS: usize = WIDTH * WIDTH;
 
 // 0,0 is the top left
-#[derive(PartialEq, Copy, Clone, Debug, Enum)]
+#[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Enum)]
 pub enum Direction {
     Down,
     Up,
