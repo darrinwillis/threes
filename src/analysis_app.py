@@ -9,10 +9,11 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-NUM_GEN=1000
+NUM_GEN = 1000
 
 
-DEBUG=False
+DEBUG = False
+
 
 class TrainingOutcomes:
     def __init__(self, outcomes_dict):
@@ -34,16 +35,36 @@ class TrainingOutcomes:
 
     def validate(self):
         assert set(self._outcomes.keys()) == {"games_played"}
-        for game in self._outcomes["games_played"]:
-            assert set(game.keys()) == {"score", "gen_id"}
+        for game in self.d()["games_played"]:
+            assert set(game.keys()) == {"score", "gen_id", "game_log"}
+        # spot check a game
+        game_log = self.d()["games_played"][0]["game_log"]
+        assert set(game_log.keys()) == {"seed", "moves"}
+        assert set(game_log["moves"]).issubset({"Up", "Down", "Left", "Right"})
 
     def as_dataframe(self):
-        return pd.DataFrame.from_records(self.d()["games_played"])
+        # NOTE we are ignoring game_log
+        return pd.DataFrame.from_records(
+            self.d()["games_played"], columns=["score", "gen_id"]
+        )
 
 
-def run_training(retrain=False, learning_rate=None, discount_factor=None, explore_rate=None, num_generations=NUM_GEN, num_episodes_per_gen=100):
+def run_training(
+    retrain=False,
+    learning_rate=None,
+    discount_factor=None,
+    explore_rate=None,
+    num_generations=NUM_GEN,
+    num_episodes_per_gen=100,
+):
 
-    cmdline = ["cargo", "run", "--release", "--", "train", ]
+    cmdline = [
+        "cargo",
+        "run",
+        "--release",
+        "--",
+        "train",
+    ]
 
     if num_generations is not None:
         cmdline.extend(["--num_generations", str(num_generations)])
@@ -86,16 +107,18 @@ def run_training(retrain=False, learning_rate=None, discount_factor=None, explor
     outcomes = TrainingOutcomes(result_dict)
 
     if DEBUG:
-        st.write(f"Loaded agent with {outcomes.num_generations()} generations; {outcomes.num_games()} games")
+        st.write(
+            f"Loaded agent with {outcomes.num_generations()} generations; {outcomes.num_games()} games"
+        )
 
     return outcomes
+
 
 def draw_top_summary(outcomes):
     df = outcomes.as_dataframe()
 
     fig = px.scatter(df, title="Scores across training", y="score", color="gen_id")
     st.write(fig)
-
 
     window_size = 5
 
@@ -104,18 +127,21 @@ def draw_top_summary(outcomes):
     fig = px.line(rolling_avg, title="Scores across training (windowed)", y="score")
     st.write(fig)
 
-    quantiles = [.1, .5, .9, 1]
+    quantiles = [0.1, 0.5, 0.9, 1]
     # Calculate the quantiles as grouped by generation
     quantiles_by_gen = df.groupby(["gen_id"]).quantile(quantiles)
 
     # Rename the quantile columns
-    quantiles_by_gen = quantiles_by_gen.unstack().score.rename(columns = lambda c: f"p{int(100*float(c))} score")
+    quantiles_by_gen = quantiles_by_gen.unstack().score.rename(
+        columns=lambda c: f"p{int(100*float(c))} score"
+    )
 
     fig = px.line(quantiles_by_gen, title="Quantiles by training generation")
     st.write(fig)
 
+
 def test_explore():
-    explore_values = [.0001, .001, .01, .1, .5]
+    explore_values = [0.0001, 0.001, 0.01, 0.1, 0.5]
 
     dfs = []
     for exp in explore_values:
@@ -132,11 +158,14 @@ def test_explore():
     st.write("total df:")
     st.write(total_df)
 
-    fig = px.scatter(total_df, title="Scores across training", y="score", color="explore_rate")
+    fig = px.scatter(
+        total_df, title="Scores across training", y="score", color="explore_rate"
+    )
     st.write(fig)
 
+
 def test_discount():
-    discount_values = [.7, .9, .99, .999]
+    discount_values = [0.7, 0.9, 0.99, 0.999]
 
     dfs = []
     for disc in discount_values:
@@ -155,17 +184,33 @@ def test_discount():
     st.write(total_df)
 
     window_size = 5
-    rolling_avg = total_df.drop("gen_id", axis=1).groupby(["discount_factor"]).rolling(window_size).quantile(.9)
+    rolling_avg = (
+        total_df.drop("gen_id", axis=1)
+        .groupby(["discount_factor"])
+        .rolling(window_size)
+        .quantile(0.9)
+    )
 
-    rolling_avg = rolling_avg.drop("discount_factor", axis=1).reset_index(col_fill="age")
+    rolling_avg = rolling_avg.drop("discount_factor", axis=1).reset_index(
+        col_fill="age"
+    )
 
-    fig = px.line(rolling_avg, title=f"Scores across training (window_size={window_size})", x="level_1", y="score", color="discount_factor")
+    fig = px.line(
+        rolling_avg,
+        title=f"Scores across training (window_size={window_size})",
+        x="level_1",
+        y="score",
+        color="discount_factor",
+    )
     st.write(fig)
 
-    fig = px.scatter(total_df, title="Scores across training", y="score", color="discount_factor")
+    fig = px.scatter(
+        total_df, title="Scores across training", y="score", color="discount_factor"
+    )
     st.write(fig)
 
-outcomes= run_training()
+
+outcomes = run_training()
 draw_top_summary(outcomes)
 
 test_explore()
