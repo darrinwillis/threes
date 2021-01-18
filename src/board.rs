@@ -20,6 +20,9 @@ pub const ALL_DIRECTIONS: [Direction; 4] = [
 ];
 
 pub type Rank = i32;
+// This is 2 ** 16 * 3, which is the max possible tile. If you have 16 tiles
+// going from 3, 6, 12,... 98304, then it is impossible to combine any more tiles and the game has been won.
+pub const MAX_RANK: Rank = 98304;
 type BoardBlocks = [Rank; NUM_BLOCKS];
 type Section = [Rank; WIDTH];
 pub type BoardSections = [Section; WIDTH];
@@ -27,7 +30,7 @@ const ZERO_BOARD_BLOCKS: BoardBlocks = [0; NUM_BLOCKS];
 const ZERO_SECTION: Section = [0; WIDTH];
 const ZERO_BOARD_SECTIONS: BoardSections = [ZERO_SECTION; WIDTH];
 
-fn combine(in1: Rank, in2: Rank) -> Option<Rank> {
+pub fn combine(in1: Rank, in2: Rank) -> Option<Rank> {
     if in1 == 0 || in2 == 0 {
         None
     } else if (in1 == 1 && in2 == 2) || (in1 == 2 && in2 == 1) {

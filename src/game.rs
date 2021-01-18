@@ -4,6 +4,7 @@ use std::convert::TryInto;
 
 //use rand::prelude::*;
 use crate::rand::Rng;
+use fnv::FnvHashMap;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoroshiro128StarStar;
 use serde::{Deserialize, Serialize};
@@ -35,6 +36,10 @@ pub enum MoveResult {
     Failed,
 }
 
+struct GameScorer {
+    rank_score_map: FnvHashMap<board::Rank, i64>,
+}
+
 pub struct Game {
     //
     // Game state
@@ -43,10 +48,14 @@ pub struct Game {
     next_rank: board::Rank,
     // (count of 2s - count of 1s) used to bias the RNG towards balanced 1s and 2s
     parity: i32,
+    //
+    // Accelerator Structures
+    //
     // The next state if the player chooses that direction
     shifted_boards: crate::EnumMap<board::Direction, Option<board::Board>>,
     // whether the board is empty; could be moved down into Board, but it's more efficient here.
     empty: bool,
+    scorer: GameScorer,
     //
     // Game history
     //
@@ -79,6 +88,40 @@ fn color_rank(rank: board::Rank) -> String {
     }
 }
 
+impl GameScorer {
+    pub fn new() -> GameScorer {
+        let mut rank_score_map = FnvHashMap::default();
+        rank_score_map.insert(0, 0);
+        rank_score_map.insert(1, 0);
+        rank_score_map.insert(2, 0);
+        let mut r: board::Rank = 3;
+        loop {
+            rank_score_map.insert(r, GameScorer::raw_score_tile(r));
+            r = board::combine(r, r).unwrap();
+            if r == board::MAX_RANK {
+                break;
+            }
+        }
+
+        GameScorer { rank_score_map }
+    }
+
+    fn raw_score_tile(rank: board::Rank) -> i64 {
+        let base: f64 = 3.0;
+        let raw: f64 = rank.try_into().unwrap();
+        base.powf(((raw / 3.0).log2() + 1.0).try_into().unwrap()) as i64
+    }
+
+    #[inline]
+    fn score_tile(&self, rank: board::Rank) -> i64 {
+        self.rank_score_map[&rank]
+    }
+
+    pub fn score(&self, board: &board::Board) -> Score {
+        board.values().iter().map(|v| self.score_tile(*v)).sum()
+    }
+}
+
 impl Game {
     pub fn new(seed: Option<u64>, do_logging: bool) -> Game {
         let seed = seed.unwrap_or(0);
@@ -95,16 +138,14 @@ impl Game {
             rng,
             parity: 0,
             next_rank: first_rank,
+            scorer: GameScorer::new(),
         }
     }
 
+    // Score an arbitrary board.
+    // NOTE: This function is somewhat slow. For high performance, use the
     pub fn score(board: &board::Board) -> Score {
-        fn score_tile(rank: board::Rank) -> i64 {
-            let base: f64 = 3.0;
-            let raw: f64 = rank.try_into().unwrap();
-            return base.powf(((raw / 3.0).log2() + 1.0).try_into().unwrap()) as i64;
-        }
-        board.values().iter().map(|v| score_tile(*v)).sum()
+        GameScorer::new().score(board)
     }
 
     fn rand_rank(rng: &mut RngType) -> board::Rank {
@@ -147,8 +188,9 @@ impl Game {
         rows.join("\r\n")
     }
 
+    // Get the current score of the game
     pub fn cur_score(&self) -> Score {
-        return Game::score(&self.cur_board);
+        self.scorer.score(&self.cur_board)
     }
 
     fn check_game_over(&self) -> Option<GameResult> {
