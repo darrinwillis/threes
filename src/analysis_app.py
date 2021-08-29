@@ -111,10 +111,11 @@ def run_training(
             f"Loaded agent with {outcomes.num_generations()} generations; {outcomes.num_games()} games"
         )
 
-    return outcomes
+    return result_file, outcomes
 
 
-def draw_top_summary(outcomes):
+def draw_top_summary(result_file, outcomes):
+    st.write(f"Default trained model. Results in {result_file}")
     df = outcomes.as_dataframe()
 
     fig = px.scatter(df, title="Scores across training", y="score", color="gen_id")
@@ -145,7 +146,7 @@ def test_explore():
 
     dfs = []
     for exp in explore_values:
-        results = run_training(explore_rate=exp)
+        _, results = run_training(explore_rate=exp)
 
         df = results.as_dataframe()
 
@@ -170,7 +171,7 @@ def test_discount():
     dfs = []
     for disc in discount_values:
         fn = f"train_disc_{disc:0.2f}.json"
-        results = run_training(discount_factor=disc)
+        _, results = run_training(discount_factor=disc)
 
         df = results.as_dataframe()
 
@@ -210,8 +211,8 @@ def test_discount():
     st.write(fig)
 
 
-outcomes = run_training()
-draw_top_summary(outcomes)
+result_file, outcomes = run_training()
+draw_top_summary(result_file, outcomes)
 
 test_explore()
 

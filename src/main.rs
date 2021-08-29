@@ -14,6 +14,7 @@ mod board;
 mod game;
 mod q_agent;
 mod random_agent;
+mod replay;
 mod utils;
 
 use clap::{App, Arg, SubCommand};
@@ -180,6 +181,16 @@ fn main() {
         .subcommand(SubCommand::with_name("interactive").about("play a game as a human"))
         .subcommand(SubCommand::with_name("random").about("random agent to play a game"))
         .subcommand(
+            SubCommand::with_name("replay")
+                .about("replay a game from a training log")
+                .arg(
+                    Arg::with_name("train_log")
+                        .long("train_log")
+                        .takes_value(true),
+                )
+                .arg(Arg::with_name("gen_id").long("gen_id").takes_value(true)),
+        )
+        .subcommand(
             SubCommand::with_name("train")
                 .about("train a q agent to play")
                 .arg(
@@ -226,6 +237,15 @@ fn main() {
     } else if matches.is_present("random") {
         let num_games = 100_000;
         play_and_analyze_games(num_games)
+    } else if matches.is_present("replay") {
+        let replay_matches = matches.subcommand_matches("replay").unwrap();
+        let train_log = replay_matches.value_of("train_log").unwrap();
+        let gen_id = replay_matches
+            .value_of("gen_id")
+            .unwrap()
+            .parse::<i32>()
+            .unwrap();
+        replay::replay_game(train_log, gen_id);
     } else if matches.is_present("train") {
         let train_matches = matches.subcommand_matches("train").unwrap();
         let num_generations = train_matches
