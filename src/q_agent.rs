@@ -34,7 +34,7 @@ pub struct QAgent {
 impl RewardTable {
     pub fn _new() -> RewardTable {
         RewardTable {
-            rewards: crate::EnumMap::new(),
+            rewards: crate::EnumMap::default(),
             read_count: 0,
         }
     }
@@ -252,7 +252,7 @@ mod tests {
     fn test_basic_qtable() {
         let mut table = QTable::new();
         let empty_board = board::Board::new();
-        let mut test_actions = crate::EnumMap::new();
+        let mut test_actions = crate::EnumMap::default();
         test_actions[Direction::Down] = 42.0;
         let reward_table = RewardTable::from_map(test_actions);
         table.action_rewards.insert(empty_board, reward_table);

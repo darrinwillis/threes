@@ -234,7 +234,7 @@ impl Game {
     fn take_all_moves(
         board: &board::Board,
     ) -> crate::EnumMap<board::Direction, Option<board::Board>> {
-        let mut next_boards = crate::EnumMap::new();
+        let mut next_boards = crate::EnumMap::default();
         for d in &board::ALL_DIRECTIONS {
             let mut new_board = *board;
             let modified = new_board.shove(*d);
